@@ -24,6 +24,7 @@ ScholarMind - 论文搜索 MCP Server
 
 import os
 import json
+import asyncio
 import logging
 from typing import Optional
 
@@ -56,15 +57,9 @@ mcp = FastMCP(
 
 # ============================================================
 # 常量配置
-#
-# 【工程思考】为什么不硬编码 API URL？
-# 因为 API 地址可能变化（版本升级、区域差异），
-# 集中管理便于维护。同理适用于超时时间、重试次数等。
 # ============================================================
 SEMANTIC_SCHOLAR_BASE = "https://api.semanticscholar.org/graph/v1"
 # 【踩坑记录】arXiv API 已从 HTTP 迁移到 HTTPS
-# 原 URL http://export.arxiv.org 会返回 301 Redirect
-# httpx 默认不跟随重定向 → 直接用 HTTPS 避免问题
 ARXIV_API_BASE = "https://export.arxiv.org/api/query"
 
 # 从环境变量读取 API Key（可选，有 Key 限额更大）
@@ -73,6 +68,13 @@ SS_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 # 请求配置
 REQUEST_TIMEOUT = 30.0  # 秒
 MAX_RESULTS_PER_SEARCH = 10  # 单次搜索最大返回数
+
+# 重试配置
+# 【工程思考】Exponential Backoff 是外部 API 集成的标准模式
+# 初始等 1 秒，然后 2 秒、4 秒...指数增长
+# 这样既能快速重试偶发错误，又不会在持续限流时频繁骚扰 API
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 1.0  # 秒
 
 
 # ============================================================
@@ -87,15 +89,15 @@ async def _semantic_scholar_request(
     endpoint: str, params: dict | None = None
 ) -> dict:
     """
-    向 Semantic Scholar API 发送请求
+    向 Semantic Scholar API 发送请求（带 Exponential Backoff 重试）
 
-    设计选择：
-    - 使用 httpx.AsyncClient 而非 requests，因为 MCP SDK 是异步的
-    - 每次创建新 client（短生命周期），避免连接池泄漏
-    - 超时设 30 秒，学术 API 响应通常较慢
+    重试策略：
+    - 遇到 429 (Rate Limit) 时自动等待并重试
+    - 等待时间指数增长：1s → 2s → 4s
+    - 最多重试 3 次，超过后抛出异常
 
     Raises:
-        httpx.HTTPStatusError: API 返回非 2xx 状态码
+        httpx.HTTPStatusError: 重试耗尽后仍失败
         httpx.TimeoutException: 请求超时
     """
     url = f"{SEMANTIC_SCHOLAR_BASE}/{endpoint}"
@@ -103,13 +105,30 @@ async def _semantic_scholar_request(
     if SS_API_KEY:
         headers["x-api-key"] = SS_API_KEY
 
-    # 【工程笔记】follow_redirects=True 防止 API 域名迁移导致 301 报错
-    async with httpx.AsyncClient(
-        timeout=REQUEST_TIMEOUT, follow_redirects=True
-    ) as client:
-        response = await client.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        return response.json()
+    last_exception = None
+
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            async with httpx.AsyncClient(
+                timeout=REQUEST_TIMEOUT, follow_redirects=True
+            ) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+                return response.json()
+
+        except httpx.HTTPStatusError as e:
+            last_exception = e
+            if e.response.status_code == 429 and attempt < MAX_RETRIES:
+                wait_time = INITIAL_BACKOFF * (2 ** attempt)
+                logger.warning(
+                    f"API 限流 (429), 等待 {wait_time}s 后重试 "
+                    f"(第 {attempt + 1}/{MAX_RETRIES} 次)"
+                )
+                await asyncio.sleep(wait_time)
+                continue
+            raise
+
+    raise last_exception  # type: ignore
 
 
 def _format_authors(authors: list[dict], max_display: int = 3) -> str:
