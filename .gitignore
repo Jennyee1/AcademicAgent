@@ -1,0 +1,49 @@
+# ===== 敏感信息 (绝对不能提交!) =====
+.env
+*.key
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ===== 虚拟环境 =====
+.venv/
+venv/
+env/
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ===== Claude Code =====
+.claude/
+
+# ===== 数据文件 (论文/图谱数据较大) =====
+data/
+*.pdf
+knowledge_graph_data/
+
+# ===== 日志 =====
+*.log
+logs/
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+
+# ===== Docker =====
+docker-compose.override.yml
+
+# ===== 测试/缓存 =====
+.pytest_cache/
+.coverage
+htmlcov/
+chroma_db/
