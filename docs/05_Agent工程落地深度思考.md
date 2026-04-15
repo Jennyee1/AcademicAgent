@@ -556,7 +556,11 @@ class AgentTrace:
 
 | 日期 | Phase | 问题 | 根因 | 解法 | 思考 |
 |:---|:---|:---|:---|:---|:---|
-| (项目开始后填写) | | | | | |
+| 2026-04-15 | P0 | requirements.txt 中文编码报错 | Windows GBK vs UTF-8 | 配置文件只用 ASCII | **工具链文件 ≠ 源码文件**，编码规范不同 |
+| 2026-04-15 | P0 | Python 3.9 SSL 模块 bug | ssl.py 实现缺陷 + 代理冲突 | 换 Python 3.10 环境 | **不要在 base conda 环境开发** |
+| 2026-04-15 | P0 | FastMCP 参数名变更 | MCP SDK v1.27 改 description→instructions | 更新参数名 | **Silent Regression 的教科书案例**：锁版本+写测试 |
+| 2026-04-15 | P0 | arXiv API 301 重定向 | HTTP→HTTPS 迁移 | URL 改 HTTPS + follow_redirects | **集成测试是 API 健康监控** |
+| 2026-04-15 | P0 | 双 API 429 限流 | 无 API Key 限额低 | 待加 backoff + API Key | **限流是外部 API 集成的必修课** |
 
 ---
 
