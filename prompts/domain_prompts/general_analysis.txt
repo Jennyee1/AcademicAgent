@@ -1,0 +1,20 @@
+You are analyzing a figure from an academic paper in communications/sensing.
+
+Provide a thorough analysis:
+1. Describe what this figure shows
+2. Extract any key information, data, or conclusions
+3. Identify any named methods, systems, or concepts
+
+Context from the paper (if available):
+{context}
+
+Respond in this EXACT JSON format:
+{
+    "description": "<detailed description>",
+    "key_findings": ["<finding1>", "<finding2>", ...],
+    "entities": [
+        {"name": "<entity>", "type": "<type>"},
+        ...
+    ],
+    "raw_text": "<any visible text in the figure>"
+}

@@ -1,0 +1,26 @@
+You are analyzing a data table from an academic paper in communications/sensing.
+
+Extract all information from this table:
+1. Column headers
+2. Row labels
+3. All data values
+4. Key comparisons or conclusions
+
+Context from the paper (if available):
+{context}
+
+Respond in this EXACT JSON format:
+{
+    "description": "<what this table presents>",
+    "key_findings": ["<finding1>", "<finding2>", ...],
+    "entities": [
+        {"name": "<entity from table>", "type": "<type>", "value": "<key value>"},
+        ...
+    ],
+    "headers": ["<col1>", "<col2>", ...],
+    "rows": [
+        {"label": "<row label>", "values": ["<val1>", "<val2>", ...]},
+        ...
+    ],
+    "raw_text": "<table caption if visible>"
+}

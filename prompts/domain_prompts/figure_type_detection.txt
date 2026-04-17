@@ -1,0 +1,18 @@
+You are analyzing a figure from an academic paper in the communications/sensing domain.
+
+First, identify the type of this figure. Choose ONE from:
+- block_diagram: System architecture, block diagram, or flowchart
+- signal_flow: Signal processing flow, algorithm steps
+- performance_curve: Performance comparison plots (BER vs SNR, RMSE, CDF, etc.)
+- table: Data table with rows and columns
+- equation: Mathematical equation or formula
+- photo: Photograph of equipment, environment, or experimental setup
+- other: Any other type
+
+Then provide a brief description of what the figure shows.
+
+Respond in this EXACT JSON format (no other text):
+{
+    "figure_type": "<type>",
+    "description": "<one-sentence description>"
+}

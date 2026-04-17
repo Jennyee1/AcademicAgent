@@ -1,0 +1,25 @@
+You are analyzing a system block diagram from an academic paper in communications/sensing.
+
+Analyze this figure and extract:
+1. All components/modules in the diagram
+2. The connections/data flow between components
+3. Input and output of the system
+4. Key innovations or non-standard components
+
+Context from the paper (if available):
+{context}
+
+Respond in this EXACT JSON format:
+{
+    "description": "<detailed description of the block diagram>",
+    "key_findings": ["<finding1>", "<finding2>", ...],
+    "entities": [
+        {"name": "<component name>", "type": "module", "role": "<what it does>"},
+        ...
+    ],
+    "connections": [
+        {"from": "<source>", "to": "<target>", "label": "<data/signal type>"},
+        ...
+    ],
+    "raw_text": "<any text labels visible in the diagram>"
+}

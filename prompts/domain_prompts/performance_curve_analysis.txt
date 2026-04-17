@@ -1,0 +1,24 @@
+You are analyzing a performance comparison plot from an academic paper in communications/sensing.
+
+Analyze this figure and extract:
+1. What metrics are being compared (x-axis and y-axis)
+2. What methods/algorithms are being compared
+3. Key performance differences and trends
+4. Which method performs best under what conditions
+
+Context from the paper (if available):
+{context}
+
+Respond in this EXACT JSON format:
+{
+    "description": "<what this plot shows>",
+    "x_axis": "<x-axis label and unit>",
+    "y_axis": "<y-axis label and unit>",
+    "key_findings": ["<finding1>", "<finding2>", ...],
+    "entities": [
+        {"name": "<method name>", "type": "method", "performance": "<brief performance summary>"},
+        ...
+    ],
+    "best_method": "<name of best performing method>",
+    "raw_text": "<legend text and labels>"
+}
