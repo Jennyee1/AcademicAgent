@@ -12,7 +12,7 @@
 |:---|:---|:---|
 | 📊 **多模态理解** | 理解论文中的图表、公式和系统框图 | ✅ Phase 1 |
 | 🕸️ **知识图谱** | 阅读论文自动构建个人学术知识网络 | ✅ Phase 2 |
-| 🎯 **学习规划** | 基于知识盲区检测，智能推荐学习路径 | 🔜 Phase 3 |
+| 🎯 **学习规划** | 基于知识盲区检测，智能推荐学习路径 | ✅ Phase 3 |
 | 💻 **代码复现** | 将论文方法转化为可执行的仿真代码 | 🔜 Phase 4 |
 | 🔍 **论文搜索** | 双源搜索（Semantic Scholar + arXiv） | ✅ Phase 0 |
 
@@ -25,14 +25,16 @@ ScholarMind/
 │   ├── mcp_servers/    ← MCP 工具服务器
 │   │   ├── paper_search.py     ← 论文搜索（Semantic Scholar + arXiv）
 │   │   ├── paper_reader.py     ← 论文阅读与多模态分析
-│   │   └── knowledge_graph.py  ← 知识图谱管理
+│   │   ├── knowledge_graph.py  ← 知识图谱管理
+│   │   └── learning_path.py    ← 学习路径规划
 │   ├── core/           ← 核心模块
 │   │   ├── pdf_parser.py       ← PDF 解析与图表提取
 │   │   └── multimodal.py       ← Claude Vision 图表分析
 │   ├── knowledge/      ← 知识图谱模块
 │   │   ├── schema.py           ← 领域 Schema 定义
 │   │   ├── graph_store.py      ← NetworkX 图谱存储
-│   │   └── extractor.py        ← LLM 知识抽取
+│   │   ├── extractor.py        ← LLM 知识抽取
+│   │   └── graph_analyzer.py   ← PageRank 图分析引擎
 │   └── execution/      ← 代码执行沙箱 (Phase 4)
 ├── prompts/            ← Prompt 模板库
 ├── templates/          ← 通信领域代码模板
