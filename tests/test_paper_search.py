@@ -14,8 +14,10 @@
 import pytest
 import asyncio
 
-# 导入被测函数
-# 注意: MCP tool 函数可以直接 import 调用
+# Guard: paper_search.py depends on httpx
+httpx = pytest.importorskip("httpx", reason="httpx not installed")
+
+# Import after guard
 from src.mcp_servers.paper_search import (
     search_papers,
     get_paper_details,

@@ -15,6 +15,9 @@ Usage:
 
 import pytest
 
+# Guard: multimodal.py depends on anthropic SDK
+anthropic = pytest.importorskip("anthropic", reason="anthropic SDK not installed")
+
 from src.core.multimodal import (
     FigureType,
     FigureAnalysisResult,
