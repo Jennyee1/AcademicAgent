@@ -21,10 +21,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install core dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install networkx python-dotenv pytest
+          pip install networkx python-dotenv "pytest>=7.0" numpy scipy matplotlib
 
       - name: Run core tests (no API deps)
         run: |
