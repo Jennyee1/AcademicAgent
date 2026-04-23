@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path as _Path
+_PROJECT_ROOT = _Path(__file__).parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 """
 ScholarMind - 知识图谱 MCP Server
 ====================================
@@ -44,7 +50,7 @@ logger = logging.getLogger("ScholarMind.KnowledgeGraph")
 # 配置
 # ============================================================
 # 图谱存储路径（在项目根目录的 data/ 下）
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+DATA_DIR = Path(os.getenv("SCHOLARMIND_DATA_DIR", str(Path(__file__).parent.parent.parent / "data")))
 GRAPH_PATH = DATA_DIR / "knowledge_graph.json"
 
 # ============================================================

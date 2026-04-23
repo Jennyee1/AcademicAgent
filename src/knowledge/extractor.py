@@ -20,16 +20,18 @@ ScholarMind - LLM 驱动的知识抽取模块
 【工程思考】为什么用 LLM 抽取而不是 NER + RE 管线？
   - 传统 NER 模型（spaCy/HuggingFace）不理解通信感知领域术语
   - 训练领域 NER 需要大量标注数据（我们没有）
-  - Claude 天然理解 "OFDM", "Beamforming", "CRLB" 这些术语
+  - LLM 天然理解 "OFDM", "Beamforming", "CRLB" 这些术语
   - Schema-guided prompt = 零标注数据的领域知识抽取
 """
 
 import json
 import logging
+import os
 import re
 from dataclasses import dataclass
 
-import anthropic
+from openai import OpenAI
+from dotenv import load_dotenv
 
 from .schema import (
     KGNode,
@@ -41,6 +43,9 @@ from .schema import (
     SCHEMA_JSON_EXAMPLE,
 )
 
+# 加载环境变量
+load_dotenv()
+
 logger = logging.getLogger("ScholarMind.Extractor")
 
 
@@ -48,52 +53,52 @@ logger = logging.getLogger("ScholarMind.Extractor")
 # 抽取 Prompt 模板
 # ============================================================
 
-EXTRACTION_PROMPT = """You are a knowledge graph extraction expert for academic papers in the communications/sensing domain (ISAC, 6G, OFDM, MIMO, beamforming, localization, etc.).
+EXTRACTION_PROMPT = """你是一名通信/感知领域（通感一体化(ISAC)、6G、OFDM、MIMO、波束成形、定位等）学术论文的知识图谱抽取专家。
 
-Your task: Extract entities (nodes) and relationships (edges) from the given text, following the schema below.
+你的任务：根据下方的 Schema（架构），从给定的文本中抽取实体（节点）和关系（边）。
 
 {schema}
 
-## Rules
-1. Only extract entities and relations defined in the schema above.
-2. Use **English** for all entity labels (even if the source text is in Chinese).
-3. Normalize entity names: use the most common/standard form (e.g., "OFDM" not "Orthogonal Frequency Division Multiplexing").
-4. Each entity must have a clear `node_type` from the schema.
-5. Each relation must have `source_label`, `source_type`, `target_label`, `target_type`, and `relation_type`.
-6. Be precise: only extract what is explicitly stated or strongly implied by the text.
-7. Do NOT hallucinate entities or relations not supported by the text.
+## 规则
+1. 只能抽取上方 Schema 中定义过的实体和关系类型。
+2. 所有的实体标签（Entity labels）强制使用 **英文**（即使原文是中文，也必须使用标准英文专业术语）。
+3. 规范化实体名称：使用最常见/标准的缩写形式（例如：使用 "OFDM" 而不是 "Orthogonal Frequency Division Multiplexing"）。
+4. 每个实体必须具备 Schema 中明确定义的 `node_type`。
+5. 每条关系必须包含 `source_label`, `source_type`, `target_label`, `target_type`, 以及 `relation_type`。
+6. 必须精确：只能抽取文本中明确陈述或强烈暗示的内容。
+7. 绝对不要（Do NOT）伪造或幻觉出文本不支持的实体或关系。
 
-## Paper Context
-- **Title**: {paper_title}
-- **Year**: {paper_year}
+## 论文上下文
+- **标题**: {paper_title}
+- **年份**: {paper_year}
 
-## Text to Extract From
+## 待抽取的文本
 {text}
 
-## Output Format
-Respond with ONLY valid JSON (no other text):
+## 输出格式
+请务必仅返回合法的 JSON 格式数据（不要输出任何其他解释性文本）：
 {json_example}
 """
 
-MERGE_PROMPT = """You have extracted knowledge from multiple sections of the same paper. 
-Merge the following partial extractions into a unified, deduplicated result.
+MERGE_PROMPT = """你已经从同一篇论文的不同章节中提取了部分知识。
+请将以下零散的抽取结果合并为一个统一的、去重后的最终结果。
 
-Rules:
-1. Merge duplicate entities (same label and type) into one.
-2. Merge duplicate edges.
-3. Keep the most informative properties for each entity.
-4. Output the merged result in the same JSON format.
+规则：
+1. 合并重复的实体（如果 label 和 type 相同，则视为同一实体）。
+2. 合并重复的关系（边）。
+3. 为每个实体保留信息量最丰富的属性。
+4. 必须以相同的 JSON 格式输出合并后的结果。
 
-Partial extractions:
+部分抽取结果：
 {partial_results}
 
-Output ONLY valid JSON:
+请务必仅返回合法的 JSON 格式数据：
 """
 
 
 class KnowledgeExtractor:
     """
-    LLM 驱动的知识抽取器
+    LLM 驱动的知识抽取器（MiniMax API，OpenAI 兼容）
 
     Usage:
         extractor = KnowledgeExtractor()
@@ -107,29 +112,35 @@ class KnowledgeExtractor:
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-20250514",
+        model: str | None = None,
         max_tokens: int = 4000,
         min_confidence: float = 0.5,
         max_chunk_chars: int = 3000,
     ):
         """
         Args:
-            model: Claude 模型名称
+            model: LLM 模型名称（默认从环境变量 MINIMAX_MODEL 读取）
             max_tokens: LLM 最大输出 token 数
             min_confidence: 最低置信度阈值（低于此值的实体/关系不入图）
             max_chunk_chars: 单次抽取的最大文本长度（超过则分段）
         """
-        self.model = model
+        self.model = model or os.getenv("MINIMAX_MODEL", "MiniMax-Text-01")
         self.max_tokens = max_tokens
         self.min_confidence = min_confidence
         self.max_chunk_chars = max_chunk_chars
         self._client = None
 
     @property
-    def client(self) -> anthropic.Anthropic:
-        """懒加载 Anthropic client"""
+    def client(self) -> OpenAI:
+        """懒加载 OpenAI-compatible client (MiniMax)"""
         if self._client is None:
-            self._client = anthropic.Anthropic()
+            api_key = os.getenv("MINIMAX_API_KEY")
+            base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+            if not api_key:
+                raise ValueError(
+                    "MINIMAX_API_KEY 未设置。请在 .env 中配置。"
+                )
+            self._client = OpenAI(api_key=api_key, base_url=base_url)
         return self._client
 
     async def extract_from_text(
@@ -210,13 +221,13 @@ class KnowledgeExtractor:
             )
 
     def _call_llm(self, prompt: str) -> str:
-        """调用 Claude API"""
-        message = self.client.messages.create(
+        """调用 MiniMax API (OpenAI 兼容)"""
+        response = self.client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
-        return message.content[0].text
+        return response.choices[0].message.content
 
     def _parse_extraction(
         self, raw_output: str, paper_title: str

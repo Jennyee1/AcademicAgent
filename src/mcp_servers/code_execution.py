@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import sys
+from pathlib import Path as _Path
+_PROJECT_ROOT = _Path(__file__).parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 """
 ScholarMind - 代码执行 MCP Server
 =====================================
@@ -50,7 +56,8 @@ logger = logging.getLogger("ScholarMind.CodeExecution")
 # ============================================================
 # 全局实例
 # ============================================================
-DATA_DIR = Path(__file__).parent.parent.parent / "data"
+import os
+DATA_DIR = Path(os.getenv("SCHOLARMIND_DATA_DIR", str(Path(__file__).parent.parent.parent / "data")))
 SANDBOX_DIR = DATA_DIR / "sandbox"
 
 mcp = FastMCP(

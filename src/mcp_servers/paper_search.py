@@ -1,3 +1,9 @@
+import sys
+from pathlib import Path as _Path
+_PROJECT_ROOT = _Path(__file__).parent.parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 """
 ScholarMind - 论文搜索 MCP Server
 =================================
@@ -63,7 +69,25 @@ SEMANTIC_SCHOLAR_BASE = "https://api.semanticscholar.org/graph/v1"
 ARXIV_API_BASE = "https://export.arxiv.org/api/query"
 
 # 从环境变量读取 API Key（可选，有 Key 限额更大）
-SS_API_KEY = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+# 【踩坑记录 #2】.env.example 中的中文占位符 "你的key" 会被 load_dotenv 原样加载，
+# httpx 将其作为 HTTP header 发送时尝试 ASCII 编码 → UnicodeEncodeError。
+# 防御策略：验证 Key 必须是纯 ASCII 且不是已知占位符，否则视为未配置。
+_raw_ss_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
+SS_API_KEY = None
+if _raw_ss_key:
+    try:
+        _raw_ss_key.encode("ascii")  # HTTP header 必须是 ASCII
+        # 排除已知的占位符值
+        if _raw_ss_key not in ("你的key", "your_key_here", ""):
+            SS_API_KEY = _raw_ss_key
+            logger.info("Semantic Scholar API Key 已配置 ✓")
+        else:
+            logger.info("Semantic Scholar API Key 为占位符，将使用无 Key 模式（限流更严格）")
+    except UnicodeEncodeError:
+        logger.warning(
+            "Semantic Scholar API Key 包含非 ASCII 字符（可能是 .env 占位符），"
+            "已自动忽略。请在 .env 中填入真实 Key 或留空。"
+        )
 
 # 请求配置
 REQUEST_TIMEOUT = 30.0  # 秒
@@ -76,6 +100,37 @@ MAX_RESULTS_PER_SEARCH = 10  # 单次搜索最大返回数
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # 秒
 
+# ============================================================
+# 主动限速器 (Proactive Rate Limiter)
+#
+# 【踩坑记录 #3】Semantic Scholar 无 Key 模式限额仅 1 req/s。
+# 如果只靠被动的 Exponential Backoff（429 触发后才等待），
+# 用户连续调用两次 MCP 工具就会立即触发限流。
+#
+# 解决方案：主动限速 — 在每次请求前检查距上次请求的时间间隔，
+# 不足则自动 sleep。这比被动 backoff 更友好：
+#   - 被动策略：请求 → 429 → 等 1s → 请求 → 429 → 等 2s（用户感知到报错）
+#   - 主动策略：请求 → 等 1.5s → 请求 → 成功（用户无感知）
+# ============================================================
+import time
+
+# 无 Key: 限额 1 req/s → 保守设 1.5s 间隔
+# 有 Key: 限额 ~10 req/s → 设 0.2s 间隔
+MIN_REQUEST_INTERVAL = 0.2 if SS_API_KEY else 1.5
+_last_request_time: float = 0.0  # 上次请求的时间戳
+
+
+async def _rate_limit_wait():
+    """主动限速：确保两次请求间隔不低于 MIN_REQUEST_INTERVAL"""
+    global _last_request_time
+    now = time.monotonic()
+    elapsed = now - _last_request_time
+    if elapsed < MIN_REQUEST_INTERVAL:
+        wait = MIN_REQUEST_INTERVAL - elapsed
+        logger.debug(f"主动限速: 等待 {wait:.1f}s")
+        await asyncio.sleep(wait)
+    _last_request_time = time.monotonic()
+
 
 # ============================================================
 # HTTP 请求工具函数
@@ -83,23 +138,25 @@ INITIAL_BACKOFF = 1.0  # 秒
 # 【工程思考】为什么封装统一请求函数？
 # 1. 集中处理 API Key 注入
 # 2. 统一超时和错误处理
-# 3. 后续可加入 rate limiting / 重试 / 缓存
+# 3. 主动限速 + 被动重试双重保护
 # ============================================================
 async def _semantic_scholar_request(
     endpoint: str, params: dict | None = None
 ) -> dict:
     """
-    向 Semantic Scholar API 发送请求（带 Exponential Backoff 重试）
+    向 Semantic Scholar API 发送请求（带主动限速 + Exponential Backoff 重试）
 
-    重试策略：
-    - 遇到 429 (Rate Limit) 时自动等待并重试
-    - 等待时间指数增长：1s → 2s → 4s
-    - 最多重试 3 次，超过后抛出异常
+    双重限流保护：
+    1. 主动：请求前自动等待至 MIN_REQUEST_INTERVAL（无感知）
+    2. 被动：遇到 429 时 Exponential Backoff 重试（1s → 2s → 4s）
 
     Raises:
         httpx.HTTPStatusError: 重试耗尽后仍失败
         httpx.TimeoutException: 请求超时
     """
+    # 主动限速（在发请求之前等待，从源头避免 429）
+    await _rate_limit_wait()
+
     url = f"{SEMANTIC_SCHOLAR_BASE}/{endpoint}"
     headers = {}
     if SS_API_KEY:
@@ -125,6 +182,7 @@ async def _semantic_scholar_request(
                     f"(第 {attempt + 1}/{MAX_RETRIES} 次)"
                 )
                 await asyncio.sleep(wait_time)
+                _last_request_time = time.monotonic()  # 重试后刷新时间戳
                 continue
             raise
 

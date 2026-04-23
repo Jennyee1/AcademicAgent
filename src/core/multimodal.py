@@ -8,7 +8,7 @@ ScholarMind - 多模态图表分析模块
   3. 从图表中提取结构化信息（用于知识图谱入图）
 
 技术选择：
-  - 使用 Anthropic Claude Vision API 进行图表理解
+  - 使用 MiniMax Vision API (OpenAI 兼容) 进行图表理解
   - 不是调用第三方 OCR，而是直接让多模态 LLM 理解图表语义
   - 这是 ScholarMind 的核心差异化能力
 
@@ -18,21 +18,26 @@ ScholarMind - 多模态图表分析模块
   3. base64 图片 + 文本 prompt 组合发送 → multimodal message
   4. 结构化输出（JSON）→ 抗 Silent Regression
 
-【工程思考】为什么用 Claude Vision 而不是专业 OCR/CV 模型？
+【工程思考】为什么用 Vision API 而不是专业 OCR/CV 模型？
   - 学术图表种类多样（框图、流程图、信号流图、曲线对比…），
     单一 CV 模型覆盖不了
-  - Claude Vision 可以同时理解"图"和"上下文文字"
-  - 对于你的通信感知领域，Claude 能理解 OFDM 框图/BER 曲线的含义，
+  - Vision LLM 可以同时理解"图"和"上下文文字"
+  - 对于通信感知领域，LLM 能理解 OFDM 框图/BER 曲线的含义，
     而通用 OCR 只能提取文字
 """
 
 import json
 import logging
+import os
 from enum import Enum
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import anthropic
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 logger = logging.getLogger("ScholarMind.Multimodal")
 
@@ -145,35 +150,36 @@ class FigureAnalyzer:
     """
     论文图表多模态分析器
 
-    使用 Claude Vision API 分析论文中的图表，
+    使用 MiniMax Vision API (OpenAI 兼容) 分析论文中的图表，
     自动识别图表类型并选择对应分析策略。
 
     Usage:
         analyzer = FigureAnalyzer()
         result = await analyzer.analyze(image_b64, context="本文提出了...")
         print(result.to_markdown())
-
-    【工程思考】为什么不在 __init__ 中创建 client？
-    因为 Anthropic client 是轻量的（只存 API key），
-    且创建成本低。但如果将来需要连接池复用，
-    可以改为在 __init__ 中创建并复用。
     """
 
     def __init__(
         self,
-        model: str = "claude-sonnet-4-20250514",
+        model: str | None = None,
         max_tokens: int = 2000,
     ):
-        self.model = model
+        self.model = model or os.getenv("MINIMAX_MODEL", "MiniMax-Text-01")
         self.max_tokens = max_tokens
         # 延迟加载 API key，避免导入时就报错
         self._client = None
 
     @property
-    def client(self) -> anthropic.Anthropic:
-        """懒加载 Anthropic client"""
+    def client(self) -> OpenAI:
+        """懒加载 OpenAI-compatible client (MiniMax)"""
         if self._client is None:
-            self._client = anthropic.Anthropic()
+            api_key = os.getenv("MINIMAX_API_KEY")
+            base_url = os.getenv("MINIMAX_BASE_URL", "https://api.minimax.io/v1")
+            if not api_key:
+                raise ValueError(
+                    "MINIMAX_API_KEY 未设置。请在 .env 中配置。"
+                )
+            self._client = OpenAI(api_key=api_key, base_url=base_url)
         return self._client
 
     async def analyze(
@@ -240,15 +246,14 @@ class FigureAnalyzer:
         self, image_base64: str, prompt: str, media_type: str
     ) -> str:
         """
-        调用 Claude Vision API
+        调用 MiniMax Vision API (OpenAI 兼容格式)
 
-        【工程思考】为什么用同步 client + 异步包装？
-        Anthropic Python SDK 的同步 client 更稳定，
-        异步 client 在某些场景下有 event loop 冲突。
-        这里用 sync client，外层用 asyncio 不冲突
-        因为 MCP tool 的 async 是在协程内。
+        使用 OpenAI SDK 的 image_url 格式传递 base64 图片：
+        data:<media_type>;base64,<data>
         """
-        message = self.client.messages.create(
+        data_uri = f"data:{media_type};base64,{image_base64}"
+
+        response = self.client.chat.completions.create(
             model=self.model,
             max_tokens=self.max_tokens,
             messages=[
@@ -256,11 +261,9 @@ class FigureAnalyzer:
                     "role": "user",
                     "content": [
                         {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": media_type,
-                                "data": image_base64,
+                            "type": "image_url",
+                            "image_url": {
+                                "url": data_uri,
                             },
                         },
                         {
@@ -272,7 +275,7 @@ class FigureAnalyzer:
             ],
         )
 
-        return message.content[0].text
+        return response.choices[0].message.content
 
     def _extract_json(self, text: str) -> dict:
         """

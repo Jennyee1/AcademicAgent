@@ -26,6 +26,13 @@ env/
 # ===== Claude Code =====
 .claude/
 
+# ===== Antigravity =====
+.gemini/antigravity/
+data/scholarmind_images/
+
+# ===== PUA Skill (外部依赖) =====
+.pua-skill-source/
+
 # ===== 数据文件 (论文/图谱数据较大) =====
 data/
 *.pdf
