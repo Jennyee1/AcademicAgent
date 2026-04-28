@@ -68,28 +68,9 @@ SEMANTIC_SCHOLAR_BASE = "https://api.semanticscholar.org/graph/v1"
 # 【踩坑记录】arXiv API 已从 HTTP 迁移到 HTTPS
 ARXIV_API_BASE = "https://export.arxiv.org/api/query"
 
-# 从环境变量读取 API Key（可选，有 Key 限额更大）
-# 【踩坑记录 #2】.env.example 中的中文占位符 "你的key" 会被 load_dotenv 原样加载，
-# httpx 将其作为 HTTP header 发送时尝试 ASCII 编码 → UnicodeEncodeError。
-# 防御策略：验证 Key 必须是纯 ASCII 且不是已知占位符，否则视为未配置。
-_raw_ss_key = os.getenv("SEMANTIC_SCHOLAR_API_KEY")
-SS_API_KEY = None
-if _raw_ss_key:
-    try:
-        _raw_ss_key.encode("ascii")  # HTTP header 必须是 ASCII
-        # 排除已知的占位符值
-        if _raw_ss_key not in ("你的key", "your_key_here", ""):
-            SS_API_KEY = _raw_ss_key
-            logger.info("Semantic Scholar API Key 已配置 ✓")
-        else:
-            logger.info("Semantic Scholar API Key 为占位符，将使用无 Key 模式（限流更严格）")
-    except UnicodeEncodeError:
-        logger.warning(
-            "Semantic Scholar API Key 包含非 ASCII 字符（可能是 .env 占位符），"
-            "已自动忽略。请在 .env 中填入真实 Key 或留空。"
-        )
-
 # 请求配置
+# 【说明】Semantic Scholar API Key 申请被拒，项目统一使用无 Key 模式。
+# 无 Key 模式限额 1 req/s，通过主动限速 + Exponential Backoff 双重保护。
 REQUEST_TIMEOUT = 30.0  # 秒
 MAX_RESULTS_PER_SEARCH = 10  # 单次搜索最大返回数
 
@@ -103,7 +84,7 @@ INITIAL_BACKOFF = 1.0  # 秒
 # ============================================================
 # 主动限速器 (Proactive Rate Limiter)
 #
-# 【踩坑记录 #3】Semantic Scholar 无 Key 模式限额仅 1 req/s。
+# 【踩坑记录】Semantic Scholar 无 Key 模式限额仅 1 req/s。
 # 如果只靠被动的 Exponential Backoff（429 触发后才等待），
 # 用户连续调用两次 MCP 工具就会立即触发限流。
 #
@@ -114,22 +95,28 @@ INITIAL_BACKOFF = 1.0  # 秒
 # ============================================================
 import time
 
-# 无 Key: 限额 1 req/s → 保守设 1.5s 间隔
-# 有 Key: 限额 ~10 req/s → 设 0.2s 间隔
-MIN_REQUEST_INTERVAL = 0.2 if SS_API_KEY else 1.5
+# 无 Key 模式: 限额 1 req/s → 保守设 1.5s 间隔
+MIN_REQUEST_INTERVAL = 1.5
 _last_request_time: float = 0.0  # 上次请求的时间戳
+
+# 【修复竞态条件】asyncio.Lock 确保"读时间→判断→等待→写时间"是原子操作
+# 没有这个锁，两个并发任务可能同时读到旧的 _last_request_time，
+# 都判断"不用等"，然后同时发请求 → 触发 429。
+# 这是经典的 TOCTOU (Time-of-Check-Time-of-Use) 竞态。
+_rate_limit_lock = asyncio.Lock()
 
 
 async def _rate_limit_wait():
-    """主动限速：确保两次请求间隔不低于 MIN_REQUEST_INTERVAL"""
+    """主动限速：确保两次请求间隔不低于 MIN_REQUEST_INTERVAL（并发安全）"""
     global _last_request_time
-    now = time.monotonic()
-    elapsed = now - _last_request_time
-    if elapsed < MIN_REQUEST_INTERVAL:
-        wait = MIN_REQUEST_INTERVAL - elapsed
-        logger.debug(f"主动限速: 等待 {wait:.1f}s")
-        await asyncio.sleep(wait)
-    _last_request_time = time.monotonic()
+    async with _rate_limit_lock:  # ← 加锁，同一时刻只有一个任务能进入
+        now = time.monotonic()
+        elapsed = now - _last_request_time
+        if elapsed < MIN_REQUEST_INTERVAL:
+            wait = MIN_REQUEST_INTERVAL - elapsed
+            logger.debug(f"主动限速: 等待 {wait:.1f}s")
+            await asyncio.sleep(wait)
+        _last_request_time = time.monotonic()
 
 
 # ============================================================
@@ -159,8 +146,6 @@ async def _semantic_scholar_request(
 
     url = f"{SEMANTIC_SCHOLAR_BASE}/{endpoint}"
     headers = {}
-    if SS_API_KEY:
-        headers["x-api-key"] = SS_API_KEY
 
     last_exception = None
 
@@ -321,20 +306,25 @@ async def search_papers(
 
     except httpx.TimeoutException:
         logger.warning(f"搜索超时: query='{query}'")
+        # 【异常反馈闭环】错误消息面向 Agent 而非用户，引导 LLM 自动降级
         return (
-            "⚠️ **搜索超时**\n\n"
-            "Semantic Scholar API 响应超时（30秒）。\n"
-            "可能原因：网络不稳定或 API 服务繁忙。\n"
-            "建议稍后重试。"
+            "⚠️ **Semantic Scholar 搜索超时**\n\n"
+            "Semantic Scholar API 响应超时（30秒），网络不稳定或服务繁忙。\n\n"
+            "**请立即调用 `search_arxiv` 工具进行备选搜索**，"
+            f"使用相同的查询词: \"{query}\"。\n"
+            "arXiv API 通常更稳定，且覆盖了大多数计算机科学和通信领域论文。"
         )
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
         logger.error(f"API 错误: status={status}, query='{query}'")
         if status == 429:
+            # 【异常反馈闭环】429 限流 → 引导 Agent 无缝切换到 arXiv
             return (
-                "⚠️ **请求频率过高**\n\n"
-                "Semantic Scholar API 限流。请等待约 1 分钟后重试。\n"
-                "提示：设置 SEMANTIC_SCHOLAR_API_KEY 可提高限额。"
+                "⚠️ **Semantic Scholar API 限流 (HTTP 429)**\n\n"
+                "当前请求频率超过 Semantic Scholar 的免费限额（1 req/s）。\n\n"
+                "**请立即调用 `search_arxiv` 工具作为备选**，"
+                f"使用相同的查询词: \"{query}\"。\n"
+                "arXiv 搜索无限流限制，可以直接获取结果。"
             )
         return f"⚠️ **API 错误** (HTTP {status})\n\n请稍后重试。"
     except Exception as e:

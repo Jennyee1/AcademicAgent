@@ -16,14 +16,14 @@ description: 分析知识图谱以检测知识盲区，并利用 PageRank 和拓
 ## 前置条件
 
 - 知识图谱必须有数据（请先使用 `get_graph_stats` MCP 工具检查）
-- 项目根目录：`e:/Materials/AntiG/AcademicAgent`
+- 已安装依赖：`pip install -r requirements.txt`
 
 ## 操作指南
 
 ### 1. 生成学习路径
 
 ```bash
-cd e:/Materials/AntiG/AcademicAgent && python skills/learning_path/scripts/analyze_knowledge.py --action learning_path --focus "<optional_focus_area>" --max-items 15
+python skills/learning_path/scripts/analyze_knowledge.py --action learning_path --focus "<optional_focus_area>" --max-items 15
 ```
 
 返回完整的学习路径报告，包含：
@@ -34,7 +34,7 @@ cd e:/Materials/AntiG/AcademicAgent && python skills/learning_path/scripts/analy
 ### 2. 检测知识盲区
 
 ```bash
-cd e:/Materials/AntiG/AcademicAgent && python skills/learning_path/scripts/analyze_knowledge.py --action detect_gaps
+python skills/learning_path/scripts/analyze_knowledge.py --action detect_gaps
 ```
 
 返回三种类型的盲区：
@@ -45,7 +45,7 @@ cd e:/Materials/AntiG/AcademicAgent && python skills/learning_path/scripts/analy
 ### 3. 获取概念重要性排名
 
 ```bash
-cd e:/Materials/AntiG/AcademicAgent && python skills/learning_path/scripts/analyze_knowledge.py --action importance --top 10
+python skills/learning_path/scripts/analyze_knowledge.py --action importance --top 10
 ```
 
 返回按综合评分排名的概念：`0.4×PageRank + 0.3×degree + 0.2×in_degree + 0.1×betweenness`

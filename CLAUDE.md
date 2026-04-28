@@ -2,15 +2,14 @@
 
 ## 项目概述
 
-ScholarMind 是面向通信感知（ISAC/6G）领域的多模态学术研究 Agent，已嵌入 Antigravity 框架。
+ScholarMind 是面向通信感知（ISAC/6G）领域的多模态学术研究 Agent，支持 Antigravity / Claude Code 等 MCP 宿主。
 
 ## 架构概览
 
 ```
-Antigravity (宿主 Agent)
-├── ~/.gemini/GEMINI.md          ← 角色定义 + 领域规则
-├── ~/.gemini/antigravity/
-│   └── mcp_config.json          ← 3 个 MCP Server 注册
+宿主 Agent (Antigravity / Claude Code)
+├── CLAUDE.md                     ← 项目入口（你正在读的这个文件）
+├── mcp_config.example.json       ← MCP Server 注册模板
 └── AcademicAgent/
     ├── skills/                   ← 2 个 Skill (paper_reader, learning_path)
     ├── .agents/workflows/        ← 3 个 Workflow (paper-analysis, knowledge-build, simulation)
@@ -25,12 +24,19 @@ Antigravity (宿主 Agent)
 - **知识积累**: 使用 `/knowledge-build` 工作流
 - **仿真实验**: 使用 `/simulation` 工作流
 
+## 安装
+
+请参阅 `README.md` 中的安装指南，或运行：
+
+```bash
+pip install -r requirements.txt
+python install.py
+```
+
 ## 详细文档
 
-- 角色与规则: `~/.gemini/GEMINI.md`
 - Skills: `skills/paper_reader/SKILL.md` , `skills/learning_path/SKILL.md`
 - Workflows: `.agents/workflows/*.md`
-- 项目文档: `docs/`
 
 ## 代码规范
 

@@ -1,111 +1,109 @@
 # 🧠 ScholarMind
 
-> 面向通信感知领域的多模态学术研究 Agent
+> 面向通信感知领域的多模态学术研究 Agent — 可安装到任何 MCP 宿主（Antigravity / Claude Code 等）
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![Claude](https://img.shields.io/badge/LLM-Claude_API-orange.svg)](https://www.anthropic.com/)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/Protocol-MCP-green.svg)](https://modelcontextprotocol.io/)
 
 ## ✨ Feature 亮点
 
-| 功能 | 描述 | 状态 |
-|:---|:---|:---|
-| 📊 **多模态理解** | 理解论文中的图表、公式和系统框图 | ✅ Phase 1 |
-| 🕸️ **知识图谱** | 阅读论文自动构建个人学术知识网络 | ✅ Phase 2 |
-| 🎯 **学习规划** | 基于知识盲区检测，智能推荐学习路径 | ✅ Phase 3 |
-| 💻 **代码复现** | 将论文方法转化为可执行的仿真代码 | ✅ Phase 4 |
-| 🔍 **论文搜索** | 双源搜索（Semantic Scholar + arXiv） | ✅ Phase 0 |
+| 功能 | 描述 |
+|:---|:---|
+| 🔍 **论文搜索** | 双源搜索（Semantic Scholar + arXiv），429 自动降级 |
+| 📊 **多模态理解** | 理解论文中的图表、公式和系统框图（按需触发，控制 Token） |
+| 🕸️ **知识图谱** | 阅读论文自动构建个人学术知识网络（Pydantic Schema 约束） |
+| 🎯 **学习规划** | 基于知识盲区检测（PageRank），智能推荐学习路径 |
+| 💻 **代码复现** | 将论文方法转化为可执行的仿真代码（沙箱隔离） |
 
 ## 🏗️ Architecture
 
 ```
 ScholarMind/
-├── CLAUDE.md           ← Claude Code 项目指令
+├── CLAUDE.md                   ← 宿主入口文档
+├── install.py                  ← 一键安装脚本
+├── mcp_config.example.json     ← MCP 注册模板
+├── .agents/workflows/          ← 3 个 Workflow (SOP 剧本)
+│   ├── paper-analysis.md       ← /paper-analysis
+│   ├── knowledge-build.md      ← /knowledge-build
+│   └── simulation.md           ← /simulation
+├── skills/                     ← 2 个 Skill (操作手册 + CLI 脚本)
+│   ├── paper_reader/           ← 论文解析 (PDF → 文本 + 图片)
+│   └── learning_path/          ← 学习路径 (盲区检测 + 路径规划)
 ├── src/
-│   ├── mcp_servers/    ← MCP 工具服务器
-│   │   ├── paper_search.py     ← 论文搜索（Semantic Scholar + arXiv）
-│   │   ├── paper_reader.py     ← 论文阅读与多模态分析
+│   ├── mcp_servers/            ← 3 个 MCP Server (常驻进程)
+│   │   ├── paper_search.py     ← 论文搜索 (Semantic Scholar + arXiv)
 │   │   ├── knowledge_graph.py  ← 知识图谱管理
-│   │   ├── learning_path.py    ← 学习路径规划
-│   │   └── code_execution.py   ← 代码执行服务
-│   ├── core/           ← 核心模块
-│   │   ├── pdf_parser.py       ← PDF 解析与图表提取
-│   │   └── multimodal.py       ← Claude Vision 图表分析
-│   ├── knowledge/      ← 知识图谱模块
-│   │   ├── schema.py           ← 领域 Schema 定义
-│   │   ├── graph_store.py      ← NetworkX 图谱存储
-│   │   ├── extractor.py        ← LLM 知识抽取
+│   │   └── code_execution.py   ← 代码沙箱执行
+│   ├── core/                   ← 核心引擎
+│   │   ├── pdf_parser.py       ← PDF 解析 (PyMuPDF, Generator 模式)
+│   │   └── multimodal.py       ← 图表分析 (Strategy 模式)
+│   ├── knowledge/              ← 知识图谱模块
+│   │   ├── schema.py           ← Pydantic + Enum Schema
+│   │   ├── extractor.py        ← LLM 知识抽取 (Structured Output)
+│   │   ├── graph_store.py      ← NetworkX 图存储
 │   │   └── graph_analyzer.py   ← PageRank 图分析引擎
-│   └── execution/      ← 代码执行模块
-│       ├── sandbox.py          ← 安全沙箱引擎 (subprocess 隔离)
+│   └── execution/              ← 仿真执行模块
+│       ├── sandbox.py          ← 安全沙箱 (subprocess 隔离)
 │       └── templates.py        ← OFDM/MIMO/MUSIC 仿真模板
-├── prompts/            ← Prompt 模板库
-├── templates/          ← 通信领域代码模板
-└── docs/               ← 项目文档
+├── prompts/                    ← Prompt 模板库
+└── tests/                      ← 测试套件
 ```
 
 ## 🚀 Quick Start
 
-### 1. 环境准备
+### 1. 克隆 & 安装依赖
 
 ```bash
-# 克隆项目
 git clone https://github.com/Jennyee1/AcademicAgent.git
 cd AcademicAgent
-
-# 创建 Python 环境（推荐 conda）
-conda create -n scholarmind python=3.11 -y
-conda activate scholarmind
-
-# 安装依赖
 pip install -r requirements.txt
 ```
 
 ### 2. 配置 API Key
 
 ```bash
-# 复制环境变量模板
-copy .env.example .env
-
-# 编辑 .env，填入你的 API Key
-# 必需：ANTHROPIC_API_KEY
-# 推荐：SEMANTIC_SCHOLAR_API_KEY
+cp .env.example .env   # Windows: copy .env.example .env
+# 编辑 .env，填入 MINIMAX_API_KEY
 ```
 
-### 3. 使用 MCP Server
+### 3. 一键安装
 
 ```bash
-# 方式1：MCP Inspector 交互式测试
-mcp dev src/mcp_servers/paper_search.py
-
-# 方式2：注册到 Claude Code
-claude mcp add paper-search python src/mcp_servers/paper_search.py
-
-# 方式3：在 Claude Code 中直接使用
-claude
-# > "帮我搜索关于 ISAC channel estimation 的最新论文"
+python install.py
 ```
 
-## 📚 文档
+这会自动：
+- 检查关键文件完整性
+- 创建 `data/` 目录
+- 从模板生成 `mcp_config.json`（自动填入你的项目路径）
+- 输出注册到宿主的指南
 
-| 文档 | 内容 |
+### 4. 注册到宿主
+
+将生成的 `mcp_config.json` 内容合并到你的宿主配置：
+
+| 宿主 | 配置文件位置 |
 |:---|:---|
-| [竞品调研](docs/01_竞品调研与市场分析.md) | 现有学术 Agent 分析 |
-| [项目设计](docs/02_项目设计与创新点规划.md) | 创新点与技术方案 |
-| [开发指南](docs/03_从零开始的Agent开发完全指南.md) | 从零搭建教程 |
-| [架构决策](docs/04_技术疑问深度解答与架构决策.md) | 设计决策与技术解答 |
-| [工程深度](docs/05_Agent工程落地深度思考.md) | RAG 漏斗模型、防幻觉、生产踩坑 |
-| [开发日志](docs/06_项目开发日志.md) | 进度追踪与学习笔记 |
-| [技术栈全景](docs/07_技术栈全景与架构决策.md) | 技术栈选型、MCP/RAG/ReAct 架构辨析 |
+| Antigravity | `~/.gemini/antigravity/mcp_config.json` |
+| Claude Code | `~/.claude/mcp_config.json` |
+
+### 5. 开始使用
+
+```
+> "帮我搜索关于 ISAC channel estimation 的最新论文"
+> /paper-analysis
+> /knowledge-build
+```
 
 ## 🛠️ Tech Stack
 
-- **LLM**: Claude API (Anthropic)
-- **协议**: MCP (Model Context Protocol)
-- **PDF 解析**: PyMuPDF
-- **向量存储**: ChromaDB
-- **知识图谱**: NetworkX → Neo4j
-- **代码沙箱**: Docker
+| 类别 | 技术 |
+|:---|:---|
+| **协议** | MCP (Model Context Protocol) |
+| **PDF 解析** | PyMuPDF (Generator 模式, 防 OOM) |
+| **知识图谱** | NetworkX + Pydantic Structured Output |
+| **搜索** | Semantic Scholar API + arXiv API (自动降级) |
+| **仿真** | subprocess 沙箱 + numpy/scipy |
 
 ## 📝 License
 

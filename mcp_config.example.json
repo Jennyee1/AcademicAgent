@@ -1,0 +1,27 @@
+{
+  "mcpServers": {
+    "paper-search": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/src/mcp_servers/paper_search.py"],
+      "env": {
+        "PYTHONPATH": "<PROJECT_ROOT>"
+      }
+    },
+    "knowledge-graph": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/src/mcp_servers/knowledge_graph.py"],
+      "env": {
+        "PYTHONPATH": "<PROJECT_ROOT>",
+        "SCHOLARMIND_DATA_DIR": "<PROJECT_ROOT>/data"
+      }
+    },
+    "code-execution": {
+      "command": "python",
+      "args": ["<PROJECT_ROOT>/src/mcp_servers/code_execution.py"],
+      "env": {
+        "PYTHONPATH": "<PROJECT_ROOT>",
+        "SCHOLARMIND_DATA_DIR": "<PROJECT_ROOT>/data"
+      }
+    }
+  }
+}

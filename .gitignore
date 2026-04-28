@@ -28,15 +28,15 @@ env/
 
 # ===== Antigravity =====
 .gemini/antigravity/
-data/scholarmind_images/
 
 # ===== PUA Skill (外部依赖) =====
 .pua-skill-source/
 
-# ===== 数据文件 (论文/图谱数据较大) =====
+# ===== 数据文件 (运行时生成，不上传) =====
 data/
 *.pdf
 knowledge_graph_data/
+mcp_config.json
 
 # ===== 日志 =====
 *.log
@@ -54,3 +54,23 @@ docker-compose.override.yml
 .coverage
 htmlcov/
 chroma_db/
+
+# ===== 排除：个人笔记与学习文档 =====
+docs/
+Analysis_Codes/
+
+# ===== 排除：未使用的 MCP Server (已被 Skill 取代) =====
+src/mcp_servers/paper_reader.py
+src/mcp_servers/learning_path.py
+
+# ===== 排除：调试遗留文件 =====
+tests/ANTIGRAVITY.MD
+tests/debug_regex.py
+tests/verify_e2e.py
+others.md
+转换逻辑.md
+search_results.txt
+
+# ===== 排除：空 Prompt 目录 =====
+prompts/extraction_prompts/
+prompts/system_prompts/

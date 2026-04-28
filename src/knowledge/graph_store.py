@@ -136,6 +136,7 @@ class KnowledgeGraphStore:
             # 已存在 → 更新置信度
             existing = self._edges[edge_id]
             existing.confidence = max(existing.confidence, edge.confidence)
+            # 在真实的业务场景（如内容安全风控）中，我们需要引入 证据积累模型 或 多源冲突消解机制，而不是简单的取最大值
             logger.debug(f"边去重: {edge_id}")
         else:
             # 新边

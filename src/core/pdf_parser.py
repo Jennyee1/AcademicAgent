@@ -30,6 +30,12 @@ import fitz  # PyMuPDF
 
 logger = logging.getLogger("ScholarMind.PDFParser")
 
+# 【Token 经济学】Vision LLM 的分辨率甜点
+# Claude 推荐长边 ≤ 1568px，超过后 API 后端会强制 resize，
+# 意味着你白白浪费了 CPU 渲染的高清像素和传输带宽。
+# 参考: https://docs.anthropic.com/en/docs/build-with-claude/vision
+MAX_LONG_EDGE = 1568
+
 
 @dataclass
 class PDFMetadata:
@@ -212,7 +218,15 @@ class PDFParser:
         return images
 
     def extract_all_images(self) -> list[ExtractedImage]:
-        """提取所有页面的图片"""
+        """
+        提取所有页面的图片
+
+        【工程说明】这里仍返回 list 而非 generator，因为：
+        1. 下游 cmd_deep() 需要 len() 统计总数
+        2. 嵌入图片的 base64 通常远小于全页渲染（几十 KB vs 几 MB）
+        3. 一篇论文嵌入图通常 10~30 张，内存压力可控
+        如果未来需要处理图册类 PDF（数百张图），可改为 generator。
+        """
         all_images = []
         for page_num in range(len(self.doc)):
             all_images.extend(self.extract_images_from_page(page_num))
@@ -227,16 +241,19 @@ class PDFParser:
         """
         将整页渲染为 PNG 图片（base64 编码）
 
-        用途：直接发送给 Claude Vision 进行整页分析
+        用途：直接发送给 Vision LLM 进行整页分析
         - 可以理解图表、公式、表格等所有视觉元素
         - 比单独提取图片更保留上下文信息
 
+        【Token 经济学优化】
+        自动将渲染分辨率上限卡在 Vision LLM 的甜点尺寸（长边 ≤ 1568px）。
+        超过此尺寸的图片会被 API 后端强制 resize，白白浪费 CPU 和带宽。
+        实际 DPI 由页面物理尺寸和 MAX_LONG_EDGE 动态计算。
+
         Args:
             page_num: 页码 (0-indexed)
-            dpi: 渲染分辨率，默认 200（平衡清晰度和大小）
-                 - 150: 快速预览
-                 - 200: 标准质量（推荐）
-                 - 300: 细节分析（文件较大）
+            dpi: 期望渲染分辨率，默认 200
+                 会被自动 cap 到 MAX_LONG_EDGE 对应的等效 DPI
 
         Returns:
             PNG 图片的 base64 编码字符串
@@ -245,15 +262,36 @@ class PDFParser:
             raise ValueError(f"页码超出范围: {page_num}")
 
         page = self.doc[page_num]
-        # Matrix 控制缩放比例: dpi/72 因为 PDF 标准是 72 DPI
-        mat = fitz.Matrix(dpi / 72, dpi / 72)
+
+        # 动态计算最优 DPI：卡在 Vision LLM 的分辨率甜点
+        # PDF 标准: 1 point = 1/72 inch
+        page_rect = page.rect
+        width_inch = page_rect.width / 72
+        height_inch = page_rect.height / 72
+        long_edge_inch = max(width_inch, height_inch)
+
+        # 用户请求的 DPI 对应的长边像素
+        requested_long_edge = long_edge_inch * dpi
+
+        if requested_long_edge > MAX_LONG_EDGE:
+            # 超出甜点 → 降低 DPI 使长边恰好等于 MAX_LONG_EDGE
+            effective_dpi = MAX_LONG_EDGE / long_edge_inch
+            logger.info(
+                f"DPI 自动降级: {dpi} → {effective_dpi:.0f} "
+                f"(页面 {page_rect.width:.0f}x{page_rect.height:.0f}pt, "
+                f"长边 cap 到 {MAX_LONG_EDGE}px)"
+            )
+        else:
+            effective_dpi = dpi
+
+        mat = fitz.Matrix(effective_dpi / 72, effective_dpi / 72)
         pix = page.get_pixmap(matrix=mat)
         image_bytes = pix.tobytes("png")
         b64 = base64.b64encode(image_bytes).decode("utf-8")
 
         size_kb = len(image_bytes) / 1024
         logger.info(
-            f"页面渲染: page={page_num}, dpi={dpi}, "
+            f"页面渲染: page={page_num}, dpi={effective_dpi:.0f}, "
             f"size={pix.width}x{pix.height}, {size_kb:.1f} KB"
         )
         return b64
@@ -262,18 +300,24 @@ class PDFParser:
 
     def parse_all_pages(
         self, render_pages: bool = False, dpi: int = 200
-    ) -> list[ParsedPage]:
+    ):
         """
-        解析所有页面，返回结构化结果
+        解析所有页面（生成器版本，逐页 yield）
+
+        【OOM 防御】重构为 Generator，避免将所有页面数据同时堆在内存中。
+        - 修改前: 50 页 × render_pages=True × ~4MB/页 = 200MB 瞬时内存
+        - 修改后: 任意时刻内存中只有 1 页的数据，处理完即释放
+
+        调用方如果需要 list，可以 list(parser.parse_all_pages())。
+        但推荐用 for page in parser.parse_all_pages() 流式消费。
 
         Args:
             render_pages: 是否同时渲染页面图片（耗时长，按需开启）
-            dpi: 渲染分辨率
+            dpi: 渲染分辨率（会被 MAX_LONG_EDGE 自动 cap）
 
-        Returns:
-            每页的文本、图片和可选的页面渲染图
+        Yields:
+            ParsedPage: 每页的文本、图片和可选的页面渲染图
         """
-        pages = []
         for page_num in range(len(self.doc)):
             page = ParsedPage(
                 page_num=page_num,
@@ -282,9 +326,7 @@ class PDFParser:
             )
             if render_pages:
                 page.page_image_b64 = self.render_page_as_image(page_num, dpi)
-            pages.append(page)
-
-        return pages
+            yield page
 
     # ---- 辅助检测 ----
 

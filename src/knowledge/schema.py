@@ -24,7 +24,9 @@ import re
 import hashlib
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import BaseModel, Field
 
 
 # ============================================================
@@ -297,11 +299,80 @@ class ExtractionResult:
 
 
 # ============================================================
-# Schema 描述（用于 Prompt 嵌入）
+# Pydantic 输出模型 — LLM Structured Output 的格式约束
 #
-# 【工程思考】这段文字会被嵌入到抽取 Prompt 中，
-# 引导 LLM 按照我们定义的 Schema 输出结构化结果。
-# 如果 Schema 变更，这里也要同步更新。
+# 【工程思考】为什么用 Pydantic 而不是手写 JSON Example？
+#   1. 单一来源原则：Enum 类型只在 NodeType/RelationType 定义一次，
+#      Pydantic 的 Literal 直接引用 Enum 的 .value，不会不同步
+#   2. 自动生成 JSON Schema：MiniMax-Text-01 支持 response_format=json_schema，
+#      传入 ExtractionOutput.model_json_schema() 即可在 API 层面强制约束输出
+#   3. 类型安全解析：model_validate_json() 替代手动 try/except，
+#      解析失败会抛出明确的 ValidationError 而不是静默丢数据
+# ============================================================
+
+# 动态生成 Literal 类型（从 Enum 自动提取，避免手动维护）
+_NODE_TYPE_VALUES = tuple(e.value for e in NodeType)
+_RELATION_TYPE_VALUES = tuple(e.value for e in RelationType)
+
+# 使用 Literal 而非直接用 Enum，因为 LLM 输出的是原始字符串
+NodeTypeLiteral = Literal[_NODE_TYPE_VALUES]  # type: ignore[valid-type]
+RelationTypeLiteral = Literal[_RELATION_TYPE_VALUES]  # type: ignore[valid-type]
+
+
+class ExtractedNode(BaseModel):
+    """
+    LLM 抽取的单个知识节点（Pydantic 模型）
+
+    该模型定义了 LLM 应该输出的节点格式。
+    与内部存储用的 KGNode dataclass 分离，各自演进互不影响。
+    """
+    label: str = Field(
+        description="实体名称，必须使用标准英文缩写（如 OFDM 而非 Orthogonal Frequency Division Multiplexing）"
+    )
+    node_type: NodeTypeLiteral = Field(  # type: ignore[valid-type]
+        description="节点类型，必须为以下之一: " + ", ".join(_NODE_TYPE_VALUES)
+    )
+    properties: dict[str, str | int | float] = Field(
+        default_factory=dict,
+        description="节点属性（如 year, venue, definition, category 等）"
+    )
+
+
+class ExtractedEdge(BaseModel):
+    """
+    LLM 抽取的单条知识关系（Pydantic 模型）
+    """
+    source_label: str = Field(description="源实体名称")
+    source_type: NodeTypeLiteral = Field(description="源实体类型")  # type: ignore[valid-type]
+    target_label: str = Field(description="目标实体名称")
+    target_type: NodeTypeLiteral = Field(description="目标实体类型")  # type: ignore[valid-type]
+    relation_type: RelationTypeLiteral = Field(  # type: ignore[valid-type]
+        description="关系类型，必须为以下之一: " + ", ".join(_RELATION_TYPE_VALUES)
+    )
+
+
+class ExtractionOutput(BaseModel):
+    """
+    LLM 知识抽取的完整输出格式（Pydantic 模型）
+
+    用法：
+      1. 生成 JSON Schema 传入 API：ExtractionOutput.model_json_schema()
+      2. 解析 LLM 输出：ExtractionOutput.model_validate_json(raw_output)
+    """
+    nodes: list[ExtractedNode] = Field(
+        description="从文本中抽取的知识实体列表"
+    )
+    edges: list[ExtractedEdge] = Field(
+        description="从文本中抽取的知识关系列表"
+    )
+
+
+# ============================================================
+# Schema 描述（用于 Prompt 嵌入，提供人类可读的上下文）
+#
+# 【工程思考】SCHEMA_DESCRIPTION 仍然保留为自然语言描述，
+# 因为 Prompt 中的领域示例（如 "OFDM, MIMO"）能帮助 LLM
+# 更好地理解抽取目标。JSON 格式约束则交给 Pydantic + API。
 # ============================================================
 SCHEMA_DESCRIPTION = """
 ## 知识图谱 Schema
@@ -333,18 +404,11 @@ SCHEMA_DESCRIPTION = """
 - **tested_on**: 在某数据集上测试 (method → dataset)
 """.strip()
 
-SCHEMA_JSON_EXAMPLE = """
-{
-  "nodes": [
-    {"label": "Hybrid Beamforming for ISAC Systems", "node_type": "paper", "properties": {"year": 2024, "venue": "IEEE TWC"}},
-    {"label": "Hybrid Beamforming", "node_type": "method", "properties": {"category": "signal processing", "description": "..."}},
-    {"label": "ISAC", "node_type": "concept", "properties": {"definition": "Integrated Sensing and Communication", "domain": "6G"}},
-    {"label": "RMSE", "node_type": "metric", "properties": {"formula": "sqrt(mean((x-x_hat)^2))", "unit": "meters"}}
-  ],
-  "edges": [
-    {"source_label": "Hybrid Beamforming for ISAC Systems", "source_type": "paper", "target_label": "Hybrid Beamforming", "target_type": "method", "relation_type": "proposes"},
-    {"source_label": "Hybrid Beamforming for ISAC Systems", "source_type": "paper", "target_label": "ISAC", "target_type": "concept", "relation_type": "uses"},
-    {"source_label": "Hybrid Beamforming", "source_type": "method", "target_label": "RMSE", "target_type": "metric", "relation_type": "evaluated_by"}
-  ]
-}
-""".strip()
+# 【兼容性保留】SCHEMA_JSON_EXAMPLE 从 Pydantic 模型自动生成
+# 即使 Enum 新增类型，Example 也会自动包含正确的 Literal 约束
+import json as _json
+SCHEMA_JSON_EXAMPLE = _json.dumps(
+    ExtractionOutput.model_json_schema(),
+    indent=2,
+    ensure_ascii=False,
+)

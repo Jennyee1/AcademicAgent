@@ -77,7 +77,8 @@ extractor = KnowledgeExtractor()
 
 @mcp.tool()
 async def add_paper_to_graph(
-    text: str,
+    text: str = "",
+    pdf_path: str = "",
     paper_title: str = "",
     paper_year: str = "",
 ) -> str:
@@ -89,21 +90,43 @@ async def add_paper_to_graph(
     - 需要积累论文中的关键概念、方法、评估指标
     - 构建个人学术知识网络
 
+    两种输入方式（任选其一）：
+    1. pdf_path: 提供本地 PDF 文件路径，Server 自动提取文本（推荐，避免传输大量文本）
+    2. text: 直接提供论文文本内容（适合只传摘要或特定章节）
+
     Args:
         text: 论文文本内容（摘要、全文或特定章节均可）
+        pdf_path: 本地 PDF 文件路径（推荐方式，Server 内部提取文本）
         paper_title: 论文标题（用于溯源）
         paper_year: 论文年份
 
     Returns:
         抽取结果摘要 + 入图统计
     """
+    # 如果提供了 pdf_path，从 PDF 中提取文本
+    if pdf_path and not text:
+        from src.core.pdf_parser import PDFParser
+        pdf_file = Path(pdf_path)
+        if not pdf_file.exists():
+            return f"⚠️ **PDF 文件不存在**: {pdf_path}"
+        try:
+            with PDFParser(str(pdf_file)) as parser:
+                text = parser.extract_full_text()
+                if not paper_title:
+                    meta = parser.get_metadata()
+                    paper_title = meta.title or ""
+            logger.info(f"从 PDF 提取文本: {len(text)} 字符, title='{paper_title}'")
+        except Exception as e:
+            return f"⚠️ **PDF 解析失败**: {type(e).__name__}: {e}"
+
     logger.info(f"知识抽取请求: title='{paper_title}', text_len={len(text)}")
 
     if len(text) < 50:
         return (
             "⚠️ **文本过短**（少于 50 字符）。\n\n"
-            "请提供论文摘要或正文内容，推荐至少提供 Abstract + Method 章节。"
+            "请提供 pdf_path 参数指向本地 PDF 文件，或通过 text 参数提供论文摘要/正文。"
         )
+
 
     try:
         # Step 1: LLM 抽取
