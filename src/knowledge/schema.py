@@ -22,6 +22,7 @@ ScholarMind - 知识图谱 Schema 定义
 
 import re
 import hashlib
+from datetime import datetime, timezone
 from enum import Enum
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -108,7 +109,7 @@ class RelationType(str, Enum):
 @dataclass
 class KGNode:
     """
-    知识图谱节点
+    知识图谱节点（双时态设计）
 
     Attributes:
         node_id: 唯一标识符（自动从 label + node_type 生成）
@@ -116,16 +117,21 @@ class KGNode:
         node_type: 节点类型
         properties: 附加属性（如论文的 year, venue; 方法的 complexity）
         source_paper: 该节点来源的论文标题（用于溯源）
-        first_seen_year: 该知识首次出现的年份（Zep 时间维度）
+        first_seen_year: 【有效时间】该知识在现实世界首次出现的年份
         superseded_by: 如果该方法/概念已被更新方法取代，记录取代者
+        created_at: 【事务时间】该节点被录入图谱的精确时间（ISO 8601）
 
     【工程思考】为什么 node_id 自动生成？
     保证不同论文中提到的相同概念映射到同一个节点 ID。
     例如 Paper A 和 Paper B 都提到 "OFDM"，应该合并到同一个节点。
 
-    【Zep 时间维度】为什么需要时间字段？
-    学术知识天然带有时间维度——方法有新旧之分，概念会被迭代。
-    时间字段支持："2024 年之后有什么新方法？" "这个方法是否已过时？"
+    【双时态 (Bi-temporal) 设计】
+    借鉴 Zep/Graphiti 的时序知识图谱思想，每个节点/边携带两个时间轴：
+      - 有效时间 (Valid Time): first_seen_year — 知识在现实中何时出现
+        → 支持查询："2024 年之后有什么新方法？"
+      - 事务时间 (Transaction Time): created_at — 知识何时被录入系统
+        → 支持查询："最近一周我新学了哪些概念？" "图谱增长曲线？"
+    两个时间轴独立变化：一篇 1998 年的论文可能在 2026 年才被录入图谱。
     """
 
     label: str
@@ -134,6 +140,7 @@ class KGNode:
     source_paper: str = ""
     first_seen_year: int | None = None
     superseded_by: str | None = None
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
     @property
     def node_id(self) -> str:
@@ -196,8 +203,9 @@ class KGNode:
             "node_type": self.node_type.value,
             "properties": self.properties,
             "source_paper": self.source_paper,
+            "created_at": self.created_at,
         }
-        # 时间字段：仅在有值时序列化（向后兼容已有 JSON）
+        # 有效时间字段：仅在有值时序列化（向后兼容已有 JSON）
         if self.first_seen_year is not None:
             d["first_seen_year"] = self.first_seen_year
         if self.superseded_by is not None:
@@ -214,13 +222,14 @@ class KGNode:
             source_paper=data.get("source_paper", ""),
             first_seen_year=data.get("first_seen_year"),
             superseded_by=data.get("superseded_by"),
+            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat(timespec="seconds")),
         )
 
 
 @dataclass
 class KGEdge:
     """
-    知识图谱边（关系）
+    知识图谱边（关系）— 双时态设计
 
     Attributes:
         source_id: 源节点 ID
@@ -229,7 +238,8 @@ class KGEdge:
         properties: 附加属性（如关系的描述、上下文）
         confidence: 抽取置信度（0.0 ~ 1.0）
         source_paper: 该关系来源的论文标题
-        established_year: 该关系被确立的年份（Zep 时间维度）
+        established_year: 【有效时间】该关系在现实中被确立的年份
+        created_at: 【事务时间】该关系被录入图谱的精确时间（ISO 8601）
     """
 
     source_id: str
@@ -239,6 +249,7 @@ class KGEdge:
     confidence: float = 0.8
     source_paper: str = ""
     established_year: int | None = None
+    created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds"))
 
     @property
     def edge_id(self) -> str:
@@ -254,6 +265,7 @@ class KGEdge:
             "properties": self.properties,
             "confidence": self.confidence,
             "source_paper": self.source_paper,
+            "created_at": self.created_at,
         }
         if self.established_year is not None:
             d["established_year"] = self.established_year
@@ -270,6 +282,7 @@ class KGEdge:
             confidence=data.get("confidence", 0.8),
             source_paper=data.get("source_paper", ""),
             established_year=data.get("established_year"),
+            created_at=data.get("created_at", datetime.now(timezone.utc).isoformat(timespec="seconds")),
         )
 
 
