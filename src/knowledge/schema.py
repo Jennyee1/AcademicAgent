@@ -116,16 +116,24 @@ class KGNode:
         node_type: 节点类型
         properties: 附加属性（如论文的 year, venue; 方法的 complexity）
         source_paper: 该节点来源的论文标题（用于溯源）
+        first_seen_year: 该知识首次出现的年份（Zep 时间维度）
+        superseded_by: 如果该方法/概念已被更新方法取代，记录取代者
 
     【工程思考】为什么 node_id 自动生成？
     保证不同论文中提到的相同概念映射到同一个节点 ID。
     例如 Paper A 和 Paper B 都提到 "OFDM"，应该合并到同一个节点。
+
+    【Zep 时间维度】为什么需要时间字段？
+    学术知识天然带有时间维度——方法有新旧之分，概念会被迭代。
+    时间字段支持："2024 年之后有什么新方法？" "这个方法是否已过时？"
     """
 
     label: str
     node_type: NodeType
     properties: dict[str, Any] = field(default_factory=dict)
     source_paper: str = ""
+    first_seen_year: int | None = None
+    superseded_by: str | None = None
 
     @property
     def node_id(self) -> str:
@@ -182,22 +190,30 @@ class KGNode:
 
     def to_dict(self) -> dict:
         """序列化为字典（用于 JSON 持久化）"""
-        return {
+        d = {
             "node_id": self.node_id,
             "label": self.label,
             "node_type": self.node_type.value,
             "properties": self.properties,
             "source_paper": self.source_paper,
         }
+        # 时间字段：仅在有值时序列化（向后兼容已有 JSON）
+        if self.first_seen_year is not None:
+            d["first_seen_year"] = self.first_seen_year
+        if self.superseded_by is not None:
+            d["superseded_by"] = self.superseded_by
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "KGNode":
-        """从字典反序列化"""
+        """从字典反序列化（兼容不含时间字段的旧数据）"""
         return cls(
             label=data["label"],
             node_type=NodeType(data["node_type"]),
             properties=data.get("properties", {}),
             source_paper=data.get("source_paper", ""),
+            first_seen_year=data.get("first_seen_year"),
+            superseded_by=data.get("superseded_by"),
         )
 
 
@@ -213,6 +229,7 @@ class KGEdge:
         properties: 附加属性（如关系的描述、上下文）
         confidence: 抽取置信度（0.0 ~ 1.0）
         source_paper: 该关系来源的论文标题
+        established_year: 该关系被确立的年份（Zep 时间维度）
     """
 
     source_id: str
@@ -221,6 +238,7 @@ class KGEdge:
     properties: dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.8
     source_paper: str = ""
+    established_year: int | None = None
 
     @property
     def edge_id(self) -> str:
@@ -229,7 +247,7 @@ class KGEdge:
 
     def to_dict(self) -> dict:
         """序列化为字典"""
-        return {
+        d = {
             "source_id": self.source_id,
             "target_id": self.target_id,
             "relation_type": self.relation_type.value,
@@ -237,10 +255,13 @@ class KGEdge:
             "confidence": self.confidence,
             "source_paper": self.source_paper,
         }
+        if self.established_year is not None:
+            d["established_year"] = self.established_year
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "KGEdge":
-        """从字典反序列化"""
+        """从字典反序列化（兼容不含时间字段的旧数据）"""
         return cls(
             source_id=data["source_id"],
             target_id=data["target_id"],
@@ -248,6 +269,7 @@ class KGEdge:
             properties=data.get("properties", {}),
             confidence=data.get("confidence", 0.8),
             source_paper=data.get("source_paper", ""),
+            established_year=data.get("established_year"),
         )
 
 
@@ -336,6 +358,14 @@ class ExtractedNode(BaseModel):
         default_factory=dict,
         description="节点属性（如 year, venue, definition, category 等）"
     )
+    first_seen_year: int | None = Field(
+        default=None,
+        description="该知识/方法首次出现的年份（如 2017）。从论文发表年份推断。"
+    )
+    superseded_by: str | None = Field(
+        default=None,
+        description="如果该方法已被更新方法取代，填写取代者名称（如 Flash Attention）。无则留空。"
+    )
 
 
 class ExtractedEdge(BaseModel):
@@ -348,6 +378,10 @@ class ExtractedEdge(BaseModel):
     target_type: NodeTypeLiteral = Field(description="目标实体类型")  # type: ignore[valid-type]
     relation_type: RelationTypeLiteral = Field(  # type: ignore[valid-type]
         description="关系类型，必须为以下之一: " + ", ".join(_RELATION_TYPE_VALUES)
+    )
+    established_year: int | None = Field(
+        default=None,
+        description="该关系被确立的年份。通常与论文发表年份相同。"
     )
 
 

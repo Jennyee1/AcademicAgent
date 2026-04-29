@@ -8,9 +8,10 @@ ScholarMind - 知识图谱存储模块
 
 功能：
   1. 节点/边的 CRUD（去重合并）
-  2. 多种查询方式（邻居、类型、关键词）
+  2. 多种查询方式（邻居、类型、关键词、TF-IDF 语义检索）
   3. JSON 持久化（save/load）
   4. 图谱统计与可视化摘要
+  5. Markdown 导出（MemU 可审计范式）
 
 设计原则：
   - MVP 阶段用 NetworkX + JSON 文件，<100 篇论文场景足够
@@ -449,3 +450,164 @@ class KnowledgeGraphStore:
             f"### 核心节点 (Top 5)\n"
             f"{top_nodes_str}\n"
         )
+
+    # ============================================================
+    # 语义检索（ReMe hybrid retrieval 思想）
+    # ============================================================
+    def semantic_search(self, query: str, top_k: int = 5) -> list[dict]:
+        """
+        基于 TF-IDF 的语义检索——零 API 调用、零 Token 消耗、零新依赖。
+
+        【工程思考】为什么用 TF-IDF 而不是 Embedding？
+          - 在 <500 节点规模下，TF-IDF 与 Embedding 检索质量差距很小
+          - TF-IDF 纯本地计算，不需要外部 API 或 ChromaDB
+          - 框架灵感：ReMe 的 hybrid retrieval，兼顾精确度和成本
+
+        Args:
+            query: 搜索查询（支持中英文）
+            top_k: 返回前 K 个最相关的节点
+
+        Returns:
+            排序后的节点字典列表，包含 similarity 分数
+        """
+        nodes = list(self._nodes.values())
+        if not nodes:
+            return []
+
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+            from sklearn.metrics.pairwise import cosine_similarity
+        except ImportError:
+            logger.warning("scikit-learn 未安装，回退到关键词匹配")
+            return self._keyword_fallback(query, top_k)
+
+        # 构建语料：label + description + source_paper
+        corpus = []
+        for n in nodes:
+            desc = n.properties.get("description", "")
+            if isinstance(desc, dict):
+                desc = str(desc)
+            text = f"{n.label} {desc} {n.source_paper}"
+            corpus.append(text)
+
+        # TF-IDF 向量化 + 余弦相似度
+        vectorizer = TfidfVectorizer()
+        tfidf_matrix = vectorizer.fit_transform(corpus + [query])
+        similarities = cosine_similarity(tfidf_matrix[-1:], tfidf_matrix[:-1])[0]
+
+        # 取 Top K
+        top_indices = similarities.argsort()[-top_k:][::-1]
+        results = []
+        for i in top_indices:
+            if similarities[i] > 0:  # 只返回有相关性的
+                node = nodes[i]
+                results.append({
+                    "node_id": node.node_id,
+                    "label": node.label,
+                    "type": node.node_type.value,
+                    "similarity": round(float(similarities[i]), 4),
+                    "source_paper": node.source_paper,
+                    "first_seen_year": node.first_seen_year,
+                })
+        return results
+
+    def _keyword_fallback(self, query: str, top_k: int) -> list[dict]:
+        """关键词匹配回退（无 scikit-learn 时使用）"""
+        query_lower = query.lower()
+        results = []
+        for node in self._nodes.values():
+            label_lower = node.label.lower()
+            desc = str(node.properties.get("description", "")).lower()
+            if query_lower in label_lower or query_lower in desc:
+                results.append({
+                    "node_id": node.node_id,
+                    "label": node.label,
+                    "type": node.node_type.value,
+                    "similarity": 1.0 if query_lower in label_lower else 0.5,
+                    "source_paper": node.source_paper,
+                    "first_seen_year": node.first_seen_year,
+                })
+        results.sort(key=lambda x: x["similarity"], reverse=True)
+        return results[:top_k]
+
+    # ============================================================
+    # Markdown 导出（MemU 可审计范式）
+    # ============================================================
+    def export_to_markdown(self, output_dir: str | Path) -> dict[str, int]:
+        """
+        将知识图谱导出为人类可读的 Markdown 文件。
+
+        【MemU 思想】知识图谱的“可审计视图”：
+          - knowledge_graph.json → 机器读（NetworkX 图算法）
+          - knowledge_export/*.md → 人读（用户浏览自己的知识库）
+
+        Args:
+            output_dir: 输出目录（如 memory/knowledge_export/）
+
+        Returns:
+            导出统计：{"concepts": N, "papers": N, "methods": N, ...}
+        """
+        output_dir = Path(output_dir)
+        stats = {}
+
+        # 按节点类型分组导出
+        type_groups: dict[str, list[KGNode]] = {}
+        for node in self._nodes.values():
+            type_name = node.node_type.value
+            if type_name not in type_groups:
+                type_groups[type_name] = []
+            type_groups[type_name].append(node)
+
+        for type_name, nodes in type_groups.items():
+            type_dir = output_dir / f"{type_name}s"
+            type_dir.mkdir(parents=True, exist_ok=True)
+            stats[type_name] = len(nodes)
+
+            for node in nodes:
+                # 文件名安全化
+                safe_name = node.label.replace("/", "_").replace("\\", "_")[:50]
+                filepath = type_dir / f"{safe_name}.md"
+
+                # 查找该节点的关联节点
+                neighbors = []
+                for edge in self._edges.values():
+                    if edge.source_id == node.node_id:
+                        target = self._nodes.get(edge.target_id)
+                        if target:
+                            neighbors.append(
+                                f"- **{edge.relation_type.value}** → [{target.label}](../{target.node_type.value}s/{target.label.replace('/', '_')[:50]}.md)"
+                            )
+                    elif edge.target_id == node.node_id:
+                        source = self._nodes.get(edge.source_id)
+                        if source:
+                            neighbors.append(
+                                f"- [{source.label}](../{source.node_type.value}s/{source.label.replace('/', '_')[:50]}.md) **{edge.relation_type.value}** →"
+                            )
+
+                # 生成 Markdown
+                lines = [
+                    f"# {node.label}\n",
+                    f"**类型**: {node.node_type.value}",
+                ]
+                if node.first_seen_year:
+                    lines.append(f"**首次出现**: {node.first_seen_year} 年")
+                if node.superseded_by:
+                    lines.append(f"**已被取代**: {node.superseded_by}")
+                if node.source_paper:
+                    lines.append(f"**来源论文**: {node.source_paper}")
+
+                # 属性
+                if node.properties:
+                    lines.append("\n## 属性")
+                    for k, v in node.properties.items():
+                        lines.append(f"- **{k}**: {v}")
+
+                # 关联
+                if neighbors:
+                    lines.append("\n## 关联关系")
+                    lines.extend(neighbors)
+
+                filepath.write_text("\n".join(lines), encoding="utf-8")
+
+        logger.info(f"知识图谱已导出到 {output_dir}，统计: {stats}")
+        return stats

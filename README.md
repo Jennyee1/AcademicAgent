@@ -22,6 +22,11 @@ ScholarMind/
 ├── CLAUDE.md                   ← 宿主入口文档
 ├── install.py                  ← 一键安装脚本
 ├── mcp_config.example.json     ← MCP 注册模板
+├── memory/                     ← 记忆系统（Hermes/MemU 文件系统范式）
+│   ├── MEMORY.md               ← 经验记忆（≤800 Token，新进旧出）
+│   ├── USER.md                 ← 用户画像（≤500 Token）
+│   ├── experiences/            ← 决策层经验（搜索策略、解析模式）
+│   └── knowledge_export/       ← 图谱可读导出（自动生成）
 ├── .agents/workflows/          ← 3 个 Workflow (SOP 剧本)
 │   ├── paper-analysis.md       ← /paper-analysis
 │   ├── knowledge-build.md      ← /knowledge-build
@@ -38,9 +43,9 @@ ScholarMind/
 │   │   ├── pdf_parser.py       ← PDF 解析 (PyMuPDF, Generator 模式)
 │   │   └── multimodal.py       ← 图表分析 (Strategy 模式)
 │   ├── knowledge/              ← 知识图谱模块
-│   │   ├── schema.py           ← Pydantic + Enum Schema
+│   │   ├── schema.py           ← Pydantic + Enum Schema (含 Zep 时间维度)
 │   │   ├── extractor.py        ← LLM 知识抽取 (Structured Output)
-│   │   ├── graph_store.py      ← NetworkX 图存储
+│   │   ├── graph_store.py      ← NetworkX 图存储 + TF-IDF 语义检索 + Markdown 导出
 │   │   └── graph_analyzer.py   ← PageRank 图分析引擎
 │   └── execution/              ← 仿真执行模块
 │       ├── sandbox.py          ← 安全沙箱 (subprocess 隔离)
@@ -101,9 +106,23 @@ python install.py
 |:---|:---|
 | **协议** | MCP (Model Context Protocol) |
 | **PDF 解析** | PyMuPDF (Generator 模式, 防 OOM) |
-| **知识图谱** | NetworkX + Pydantic Structured Output |
+| **知识图谱** | NetworkX + Pydantic Structured Output + Zep 时间维度 |
+| **检索** | TF-IDF 语义检索 (ReMe hybrid retrieval) + 关键词回退 |
 | **搜索** | Semantic Scholar API + arXiv API (自动降级) |
+| **记忆** | Hermes-style MEMORY.md + USER.md + MemU Markdown 导出 |
 | **仿真** | subprocess 沙箱 + numpy/scipy |
+
+## 🧠 Memory System
+
+借鉴 Hermes Agent、ReMe、MemU、Zep 等记忆框架思想，实现了轻量级文件系统记忆：
+
+| 记忆层 | 实现 | 灵感来源 |
+|:---|:---|:---|
+| 用户画像 | `memory/USER.md` (≤500 Token) | Mem0 用户建模 |
+| 经验记忆 | `memory/MEMORY.md` (≤800 Token，新进旧出) | Hermes MEMORY.md + ReMe |
+| 时间维度 | `schema.py` 时间字段 | Zep/Graphiti 时序图谱 |
+| 语义检索 | `graph_store.py` TF-IDF | ReMe hybrid retrieval |
+| 可审计导出 | `export_to_markdown()` | MemU 文件系统记忆 |
 
 ## 📝 License
 

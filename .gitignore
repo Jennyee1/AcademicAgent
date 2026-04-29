@@ -38,6 +38,9 @@ data/
 knowledge_graph_data/
 mcp_config.json
 
+# ===== 记忆系统 (模板文件上传，运行时导出不上传) =====
+memory/knowledge_export/
+
 # ===== 日志 =====
 *.log
 logs/
