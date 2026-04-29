@@ -611,3 +611,131 @@ class KnowledgeGraphStore:
 
         logger.info(f"知识图谱已导出到 {output_dir}，统计: {stats}")
         return stats
+
+    # ============================================================
+    # 交互式可视化（pyvis）
+    # ============================================================
+
+    def visualize(self, output_path: str = "data/kg_visualization.html") -> str:
+        """
+        生成交互式知识图谱 HTML（pyvis 力导向图）
+
+        在浏览器中打开生成的 HTML 即可交互：
+        - 拖拽节点
+        - 缩放画布
+        - 悬停查看详情（类型、年份、录入时间）
+
+        Args:
+            output_path: HTML 输出路径
+
+        Returns:
+            输出文件的绝对路径
+
+        【工程思考】为什么用 pyvis 而不是 D3.js？
+        pyvis 是 NetworkX 的可视化前端，一行代码即可从现有图谱生成 HTML。
+        D3.js 更灵活但需要手写前端代码，不符合 Plugin 的轻量原则。
+        """
+        try:
+            from pyvis.network import Network
+        except ImportError:
+            logger.error("pyvis 未安装。请运行: pip install pyvis")
+            return ""
+
+        if self.node_count == 0:
+            logger.warning("知识图谱为空，无法生成可视化")
+            return ""
+
+        net = Network(
+            height="800px",
+            width="100%",
+            directed=True,
+            notebook=False,
+            bgcolor="#1a1a2e",
+            font_color="white",
+        )
+
+        # 节点颜色映射（按类型区分）
+        color_map = {
+            "paper": "#4ECDC4",      # 青色 — 论文
+            "concept": "#FF6B6B",    # 珊瑚红 — 概念
+            "method": "#45B7D1",     # 天蓝 — 方法
+            "author": "#96CEB4",     # 薄荷绿 — 作者
+            "metric": "#FFEAA7",     # 暖黄 — 指标
+            "dataset": "#DDA0DD",    # 淡紫 — 数据集
+            "tool": "#98D8C8",       # 浅绿 — 工具
+        }
+
+        # 添加节点
+        for node_id, node in self._nodes.items():
+            node_type_str = node.node_type.value
+            color = color_map.get(node_type_str, "#CCCCCC")
+
+            # 悬停信息（双时态数据展示）
+            title_parts = [
+                f"<b>{node.label}</b>",
+                f"Type: {node_type_str}",
+            ]
+            if node.first_seen_year:
+                title_parts.append(f"Valid Time: {node.first_seen_year}")
+            if node.created_at:
+                title_parts.append(f"Added: {node.created_at[:10]}")
+            if node.source_paper:
+                title_parts.append(f"Source: {node.source_paper[:40]}")
+            title = "<br>".join(title_parts)
+
+            # 节点大小按度数调整
+            degree = self._graph.degree(node_id) if node_id in self._graph else 1
+            size = max(15, min(50, 10 + degree * 5))
+
+            net.add_node(
+                node_id,
+                label=node.label,
+                color=color,
+                title=title,
+                size=size,
+            )
+
+        # 添加边
+        for edge in self._edges.values():
+            if edge.source_id in self._nodes and edge.target_id in self._nodes:
+                net.add_edge(
+                    edge.source_id,
+                    edge.target_id,
+                    title=edge.relation_type.value,
+                    label=edge.relation_type.value,
+                    color="#ffffff44",
+                    arrows="to",
+                )
+
+        # 物理引擎配置（力导向布局）
+        net.set_options("""
+        {
+            "physics": {
+                "forceAtlas2Based": {
+                    "gravitationalConstant": -50,
+                    "centralGravity": 0.01,
+                    "springLength": 120,
+                    "springConstant": 0.08
+                },
+                "solver": "forceAtlas2Based",
+                "stabilization": {"iterations": 100}
+            },
+            "edges": {
+                "smooth": {"type": "continuous"},
+                "font": {"size": 10, "color": "#888888"}
+            },
+            "interaction": {
+                "hover": true,
+                "tooltipDelay": 200
+            }
+        }
+        """)
+
+        # 确保输出目录存在
+        output = Path(output_path)
+        output.parent.mkdir(parents=True, exist_ok=True)
+
+        net.save_graph(str(output))
+        logger.info(f"知识图谱可视化已保存: {output} ({self.node_count} 节点, {self.edge_count} 边)")
+        return str(output.resolve())
+
