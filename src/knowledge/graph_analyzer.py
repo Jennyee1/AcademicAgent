@@ -4,10 +4,11 @@ from __future__ import annotations
 ScholarMind - 知识图谱分析与学习路径规划
 ===========================================
 
-基于知识图谱的结构分析，实现三大核心能力：
+基于知识图谱的结构分析，实现四大核心能力：
   1. 图谱结构分析（PageRank, 度分布, 连通分量）
-  2. 知识盲区检测（稀疏区域 + 孤立概念 + 单源依赖）
-  3. 学习路径推荐（拓扑排序 + 重要性加权）
+  2. 知识盲区检测（稀疏区域 + 孤立概念 + 单源依赖 + 时代盲区）
+  3. 学习路径推荐（拓扑排序 + 重要性加权 + 时间优先级）
+  4. 双时态分析（知识时代分布 + 学习进度追踪 + 知识新鲜度）
 
 【工程思考】为什么 Phase 3 在 Phase 2 之后？
   Phase 2 建好了知识图谱（节点 + 边），Phase 3 才能在上面做图分析。
@@ -29,6 +30,7 @@ ScholarMind - 知识图谱分析与学习路径规划
 import logging
 from collections import Counter
 from dataclasses import dataclass, field
+from datetime import datetime, timezone, timedelta
 
 import networkx as nx
 
@@ -53,6 +55,7 @@ class ConceptImportance:
     in_degree: int = 0
     out_degree: int = 0
     betweenness: float = 0.0    # 介数中心性：处于多少条最短路径上
+    recency_boost: float = 0.0  # 时间新鲜度加成（first_seen_year 越近越高）
     importance_score: float = 0.0  # 综合重要性评分
 
 
@@ -61,18 +64,37 @@ class KnowledgeGap:
     """
     知识盲区
 
-    【工程思考】盲区有三种类型：
+    【工程思考】盲区有四种类型：
     1. foundation_gap: 基础概念掌握不够（PageRank 高但属性稀疏）
     2. isolated_concept: 孤立概念（与其他知识缺乏连接）
     3. single_source: 单一来源依赖（一个概念只从一篇论文了解）
+    4. temporal_gap: 时代盲区（知识集中在某个年代，缺少新/旧方法的覆盖）
     """
     node_id: str
     label: str
     node_type: str
-    gap_type: str          # foundation_gap | isolated_concept | single_source
+    gap_type: str          # foundation_gap | isolated_concept | single_source | temporal_gap
     severity: float        # 严重程度 0.0 ~ 1.0
     reason: str            # 人类可读的原因描述
     suggested_action: str  # 建议的学习行动
+
+
+@dataclass
+class TemporalAnalysis:
+    """
+    双时态分析结果
+
+    利用 first_seen_year（有效时间）和 created_at（事务时间）
+    分析用户的知识时代覆盖度、学习进度和知识新鲜度。
+    """
+    era_distribution: dict[str, int]    # {"pre-2015": 5, "2015-2019": 7, "2020+": 10, "unknown": 3}
+    era_bias: str                       # "偏旧" | "均衡" | "偏新"
+    freshness_score: float              # 0~1, 越高表示知识越前沿
+    recent_focus_areas: list[str]       # 最近 7 天录入的概念方向
+    stale_concepts: list[str]           # 重要但来自较旧年代的概念
+    learning_velocity: dict[str, int]   # {"2026-05-06": 30, "2026-05-07": 15}
+    avg_year: float                     # 有标注节点的平均年份
+    year_span: tuple[int, int] | None   # (最早年份, 最新年份)
 
 
 @dataclass
@@ -222,7 +244,22 @@ class KnowledgeGraphAnalyzer:
                 betweenness=betweenness.get(node_id, 0.0),
             ))
 
-        # 归一化并计算综合评分
+        # 计算 recency_boost
+        current_year = datetime.now().year
+        for r in results:
+            node = self.store.get_node(r.node_id)
+            if node and node.first_seen_year:
+                # 2010 → 0.0, 2017 → 0.47, 2023 → 0.87, 2026 → 1.0
+                r.recency_boost = min(1.0, max(0.0,
+                    (node.first_seen_year - 2010) / max(1, current_year - 2010)
+                ))
+            else:
+                r.recency_boost = 0.5  # 缺失时给中间值，不惩罚
+
+        # 归一化并计算综合评分（含时间加权）
+        #
+        # 【算法变更】权重从 [0.4, 0.3, 0.2, 0.1] 变为 [0.35, 0.25, 0.15, 0.10, 0.15]
+        # 新增 recency_boost 占 15%，让前沿方法在同等结构条件下排名略高
         if results:
             max_pr = max(r.pagerank for r in results) or 1.0
             max_deg = max(r.degree for r in results) or 1
@@ -231,10 +268,11 @@ class KnowledgeGraphAnalyzer:
 
             for r in results:
                 r.importance_score = (
-                    0.4 * (r.pagerank / max_pr)
-                    + 0.3 * (r.degree / max_deg)
-                    + 0.2 * (r.in_degree / max_in)
-                    + 0.1 * (r.betweenness / max_bt)
+                    0.35 * (r.pagerank / max_pr)
+                    + 0.25 * (r.degree / max_deg)
+                    + 0.15 * (r.in_degree / max_in)
+                    + 0.10 * (r.betweenness / max_bt)
+                    + 0.15 * r.recency_boost
                 )
 
         results.sort(key=lambda r: r.importance_score, reverse=True)
@@ -300,14 +338,124 @@ class KnowledgeGraphAnalyzer:
         }
 
     # ============================================================
-    # 2. 知识盲区检测
+    # 2. 双时态分析
+    # ============================================================
+
+    def analyze_temporal(self) -> TemporalAnalysis:
+        """
+        基于双时态字段的综合分析
+
+        利用两个独立时间轴：
+        - first_seen_year（有效时间）：知识在现实中何时出现
+        - created_at（事务时间）：知识何时被录入图谱
+
+        分析三个维度：
+        1. 知识时代分布 — 你的知识偏向哪个年代？
+        2. 学习进度追踪 — 你最近在哪个方向发力？
+        3. 知识新鲜度 — 你学的内容够新吗？
+        """
+        current_year = datetime.now().year
+
+        # --- 1. 时代分布（基于 first_seen_year）---
+        eras: dict[str, int] = {"pre-2015": 0, "2015-2019": 0, "2020+": 0, "unknown": 0}
+        years: list[int] = []
+
+        for node in self.store._nodes.values():
+            if node.node_type in (NodeType.PAPER, NodeType.AUTHOR):
+                continue  # 只分析 method / concept / metric / dataset
+            y = node.first_seen_year
+            if not y:
+                eras["unknown"] += 1
+            elif y < 2015:
+                eras["pre-2015"] += 1
+                years.append(y)
+            elif y < 2020:
+                eras["2015-2019"] += 1
+                years.append(y)
+            else:
+                eras["2020+"] += 1
+                years.append(y)
+
+        # --- 2. 时代偏差判断 ---
+        known_total = sum(v for k, v in eras.items() if k != "unknown")
+        if known_total == 0:
+            era_bias = "均衡"
+            avg_year = 0.0
+            year_span = None
+        else:
+            avg_year = sum(years) / len(years) if years else 0.0
+            new_ratio = eras["2020+"] / known_total
+            old_ratio = eras["pre-2015"] / known_total
+
+            if new_ratio >= 0.6:
+                era_bias = "偏新"
+            elif old_ratio >= 0.4 and new_ratio < 0.3:
+                era_bias = "偏旧"
+            else:
+                era_bias = "均衡"
+
+            year_span = (min(years), max(years)) if years else None
+
+        # --- 3. 知识新鲜度 ---
+        # 归一化到 0~1：2010 → 0, current_year → 1
+        if avg_year > 0:
+            freshness = min(1.0, max(0.0,
+                (avg_year - 2010) / max(1, current_year - 2010)
+            ))
+        else:
+            freshness = 0.5  # 无数据时取中间值
+
+        # --- 4. 学习进度（基于 created_at）---
+        velocity: dict[str, int] = Counter()
+        for node in self.store._nodes.values():
+            if node.created_at:
+                date_str = node.created_at[:10]  # YYYY-MM-DD
+                velocity[date_str] += 1
+
+        # --- 5. 最近关注方向（最近 7 天录入的概念）---
+        seven_days_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()[:10]
+        recent_nodes = [
+            node for node in self.store._nodes.values()
+            if node.created_at and node.created_at[:10] >= seven_days_ago
+            and node.node_type not in (NodeType.PAPER, NodeType.AUTHOR)
+        ]
+        # 按 source_paper 聚类
+        focus_papers = Counter(n.source_paper for n in recent_nodes if n.source_paper)
+        recent_focus = [paper for paper, _ in focus_papers.most_common(5)]
+
+        # --- 6. 陈旧重要概念 ---
+        # 重要性高（度 ≥ 3）但 first_seen_year 在 2018 之前的概念
+        stale: list[str] = []
+        for node_id, node in self.store._nodes.items():
+            if (
+                node.node_type in (NodeType.METHOD, NodeType.CONCEPT)
+                and node.first_seen_year
+                and node.first_seen_year < 2018
+            ):
+                degree = self._graph.in_degree(node_id) + self._graph.out_degree(node_id)
+                if degree >= 3:
+                    stale.append(node.label)
+
+        return TemporalAnalysis(
+            era_distribution=eras,
+            era_bias=era_bias,
+            freshness_score=freshness,
+            recent_focus_areas=recent_focus,
+            stale_concepts=stale,
+            learning_velocity=dict(sorted(velocity.items())),
+            avg_year=avg_year,
+            year_span=year_span,
+        )
+
+    # ============================================================
+    # 3. 知识盲区检测
     # ============================================================
 
     def detect_knowledge_gaps(self) -> list[KnowledgeGap]:
         """
         检测知识图谱中的盲区
 
-        三种盲区类型：
+        四种盲区类型：
 
         1. foundation_gap (基础缺失):
            - PageRank 高（是核心概念）但属性稀疏（没有详细记录定义/描述）
@@ -320,6 +468,10 @@ class KnowledgeGraphAnalyzer:
         3. single_source (单源依赖):
            - 一个概念只从一篇论文中了解（source_papers 只有 1 篇）
            - 说明你对这个概念的理解可能有偏见，需要交叉验证
+
+        4. temporal_gap (时代盲区):
+           - 利用 first_seen_year 检测知识是否集中在某个年代
+           - 标记重要但来自较旧年代的概念（可能需要了解最新演进）
 
         【工程思考】为什么盲区检测很重要？
         - 学生读论文容易"只见树木不见森林"
@@ -408,6 +560,55 @@ class KnowledgeGraphAnalyzer:
                         f"寻找关于 {node.label} 的其他论文或教材，"
                         f"交叉验证你的理解是否全面"
                     ),
+                ))
+
+        # --- 类型 4: 时代盲区 ---
+        # 分析 first_seen_year 的分布，检测知识是否偏向某个时代
+        temporal = self.analyze_temporal()
+        if temporal.era_bias == "偏旧":
+            gaps.append(KnowledgeGap(
+                node_id="__temporal_bias__",
+                label="知识时代偏差",
+                node_type="temporal",
+                gap_type="temporal_gap",
+                severity=0.6,
+                reason=(
+                    f"知识偏向旧方法（平均年份 {temporal.avg_year:.0f}），"
+                    f"2020+ 占比不足 40%。可能缺少最新研究进展"
+                ),
+                suggested_action=(
+                    "建议阅读 2023-2024 年的最新论文，"
+                    "补充前沿方法（如 Flash Attention, MoE, Agent Framework 等）"
+                ),
+            ))
+        elif temporal.era_bias == "偏新":
+            gaps.append(KnowledgeGap(
+                node_id="__temporal_bias__",
+                label="知识时代偏差",
+                node_type="temporal",
+                gap_type="temporal_gap",
+                severity=0.4,
+                reason=(
+                    f"知识偏向新方法（平均年份 {temporal.avg_year:.0f}），"
+                    f"缺少经典基础知识的覆盖"
+                ),
+                suggested_action=(
+                    "建议补充经典基础论文（如 LSTM, ResNet, Word2Vec 等），"
+                    "加深对领域演进脉络的理解"
+                ),
+            ))
+
+        # 标记重要但年代较旧的概念
+        if temporal.stale_concepts:
+            for label in temporal.stale_concepts[:5]:
+                gaps.append(KnowledgeGap(
+                    node_id=f"__stale_{label}__",
+                    label=label,
+                    node_type="concept",
+                    gap_type="temporal_gap",
+                    severity=0.35,
+                    reason=f"核心概念但来自较旧年代，可能需要了解其最新演进",
+                    suggested_action=f"搜索 {label} 的最新改进或替代方法",
                 ))
 
         # 按严重程度排序
@@ -516,7 +717,9 @@ class KnowledgeGraphAnalyzer:
             topo_idx = topo_order.get(node_id, max_topo)
             topo_boost = 1.0 - (topo_idx / max_topo) if max_topo > 0 else 0.0
 
-            combined = imp_score * 0.4 + gap_score * 0.4 + topo_boost * 0.2
+            # 时间加权：越新的方法在同等条件下优先学习
+            recency = imp.recency_boost if imp else 0.5
+            combined = imp_score * 0.35 + gap_score * 0.35 + topo_boost * 0.15 + recency * 0.15
 
             # 确定优先级
             if combined > 0.6 or (gap and gap.severity > 0.7):

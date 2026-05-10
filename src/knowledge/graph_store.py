@@ -618,22 +618,18 @@ class KnowledgeGraphStore:
 
     def visualize(self, output_path: str = "data/kg_visualization.html") -> str:
         """
-        生成交互式知识图谱 HTML（pyvis 力导向图）
+        生成交互式知识图谱 HTML（pyvis 力导向图 + 图例 + 说明 + 筛选）
 
         在浏览器中打开生成的 HTML 即可交互：
-        - 拖拽节点
-        - 缩放画布
+        - 拖拽节点 / 缩放画布
         - 悬停查看详情（类型、年份、录入时间）
+        - 通过图例按类型筛选节点
 
         Args:
             output_path: HTML 输出路径
 
         Returns:
             输出文件的绝对路径
-
-        【工程思考】为什么用 pyvis 而不是 D3.js？
-        pyvis 是 NetworkX 的可视化前端，一行代码即可从现有图谱生成 HTML。
-        D3.js 更灵活但需要手写前端代码，不符合 Plugin 的轻量原则。
         """
         try:
             from pyvis.network import Network
@@ -646,96 +642,371 @@ class KnowledgeGraphStore:
             return ""
 
         net = Network(
-            height="800px",
+            height="650px",
             width="100%",
             directed=True,
             notebook=False,
-            bgcolor="#1a1a2e",
-            font_color="white",
+            bgcolor="#f8fafc",
+            font_color="#1e293b",
         )
 
-        # 节点颜色映射（按类型区分）
+        # 节点颜色映射（按类型区分，明亮风格）
         color_map = {
-            "paper": "#4ECDC4",      # 青色 — 论文
-            "concept": "#FF6B6B",    # 珊瑚红 — 概念
-            "method": "#45B7D1",     # 天蓝 — 方法
-            "author": "#96CEB4",     # 薄荷绿 — 作者
-            "metric": "#FFEAA7",     # 暖黄 — 指标
-            "dataset": "#DDA0DD",    # 淡紫 — 数据集
-            "tool": "#98D8C8",       # 浅绿 — 工具
+            "paper":   "#2563eb",  # 蓝色 — 论文
+            "concept": "#dc2626",  # 红色 — 概念
+            "method":  "#0891b2",  # 青色 — 方法
+            "author":  "#6b7280",  # 灰色 — 作者
+            "metric":  "#d97706",  # 琥珀 — 指标
+            "dataset": "#7c3aed",  # 紫色 — 数据集
+            "tool":    "#059669",  # 绿色 — 工具
         }
+
+        type_labels = {
+            "paper": "📄 论文", "concept": "💡 概念", "method": "⚙️ 方法",
+            "author": "👤 作者", "metric": "📏 指标", "dataset": "📊 数据集",
+            "tool": "🔧 工具",
+        }
+
+        # 统计各类型数量
+        type_counts: dict[str, int] = {}
+        for node in self._nodes.values():
+            t = node.node_type.value
+            type_counts[t] = type_counts.get(t, 0) + 1
+
+        # 构建每个类型的节点列表（供图例下拉用）
+        import json as _json
+        type_node_lists: dict[str, list[dict]] = {}
+        for t in type_labels:
+            type_node_lists[t] = []
 
         # 添加节点
         for node_id, node in self._nodes.items():
             node_type_str = node.node_type.value
-            color = color_map.get(node_type_str, "#CCCCCC")
+            color = color_map.get(node_type_str, "#94a3b8")
 
-            # 悬停信息（双时态数据展示）
-            title_parts = [
-                f"<b>{node.label}</b>",
-                f"Type: {node_type_str}",
-            ]
-            if node.first_seen_year:
-                title_parts.append(f"Valid Time: {node.first_seen_year}")
-            if node.created_at:
-                title_parts.append(f"Added: {node.created_at[:10]}")
-            if node.source_paper:
-                title_parts.append(f"Source: {node.source_paper[:40]}")
-            title = "<br>".join(title_parts)
-
-            # 节点大小按度数调整
             degree = self._graph.degree(node_id) if node_id in self._graph else 1
-            size = max(15, min(50, 10 + degree * 5))
+
+            # 构建 tooltip 数据（用 JSON 存储，由自定义 JS 解析渲染）
+            tooltip_data = {
+                "name": node.label,
+                "type": type_labels.get(node_type_str, node_type_str),
+                "color": color,
+            }
+            if node.first_seen_year:
+                tooltip_data["year"] = node.first_seen_year
+            if node.created_at:
+                tooltip_data["added"] = node.created_at[:10]
+            if node.source_paper:
+                tooltip_data["source"] = node.source_paper[:60]
+            for key in ("description", "definition", "category"):
+                val = node.properties.get(key)
+                if val and isinstance(val, str):
+                    tooltip_data["desc"] = val[:100] + ("..." if len(val) > 100 else "")
+                    break
+            tooltip_data["degree"] = degree
+            tooltip_data["ntype"] = node_type_str
+
+            # 将 JSON 存入 title（自定义 JS 会解析它）
+            title_json = _json.dumps(tooltip_data, ensure_ascii=False)
+
+            # 节点大小
+            size = max(12, min(55, 8 + degree * 4))
+            if node_type_str == "author":
+                size = max(10, min(20, 8 + degree * 2))
+
+            # 字号按度数缩放：度越高字越大
+            short_label = node.label if len(node.label) <= 22 else node.label[:19] + "..."
+            font_size = max(12, min(30, 10 + degree * 2))
 
             net.add_node(
                 node_id,
-                label=node.label,
+                label=short_label,
                 color=color,
-                title=title,
+                title=title_json,
                 size=size,
+                font={"size": font_size,
+                      "color": "#1e293b",
+                      "strokeWidth": 3,
+                      "strokeColor": "#ffffff"},
+                borderWidth=2,
+                borderWidthSelected=4,
             )
+
+            # 收集到类型列表
+            if node_type_str in type_node_lists:
+                type_node_lists[node_type_str].append({
+                    "id": node_id,
+                    "label": node.label,
+                    "degree": degree,
+                })
+
+        # 按度数排序每个类型的列表
+        for t in type_node_lists:
+            type_node_lists[t].sort(key=lambda x: x["degree"], reverse=True)
 
         # 添加边
         for edge in self._edges.values():
             if edge.source_id in self._nodes and edge.target_id in self._nodes:
+                rel_label = edge.relation_type.value.replace("_", " ")
                 net.add_edge(
                     edge.source_id,
                     edge.target_id,
-                    title=edge.relation_type.value,
-                    label=edge.relation_type.value,
-                    color="#ffffff44",
+                    title=rel_label,
+                    label="",
+                    color="#94a3b888",
                     arrows="to",
+                    width=1.5,
                 )
 
-        # 物理引擎配置（力导向布局）
+        # 物理引擎配置
         net.set_options("""
         {
             "physics": {
                 "forceAtlas2Based": {
-                    "gravitationalConstant": -50,
-                    "centralGravity": 0.01,
-                    "springLength": 120,
-                    "springConstant": 0.08
+                    "gravitationalConstant": -80,
+                    "centralGravity": 0.008,
+                    "springLength": 160,
+                    "springConstant": 0.04,
+                    "avoidOverlap": 0.8
                 },
                 "solver": "forceAtlas2Based",
-                "stabilization": {"iterations": 100}
+                "stabilization": {"iterations": 200}
             },
             "edges": {
                 "smooth": {"type": "continuous"},
-                "font": {"size": 10, "color": "#888888"}
+                "font": {"size": 0}
             },
             "interaction": {
                 "hover": true,
-                "tooltipDelay": 200
+                "tooltipDelay": 9999999,
+                "zoomView": true,
+                "dragView": true
+            },
+            "nodes": {
+                "shape": "dot",
+                "font": {"face": "Segoe UI, Microsoft YaHei, sans-serif"}
             }
         }
         """)
 
-        # 确保输出目录存在
+        # 生成 pyvis 的原始 HTML
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
-
         net.save_graph(str(output))
+
+        # 读取并注入自定义包装
+        raw_html = output.read_text(encoding="utf-8")
+
+        # --- 构建图例 HTML（含下拉列表）---
+        legend_items = ""
+        for t, label in type_labels.items():
+            c = color_map.get(t, "#94a3b8")
+            count = type_counts.get(t, 0)
+            if count <= 0:
+                continue
+            nodes_in_type = type_node_lists.get(t, [])
+            dropdown_items = "".join(
+                f'<div class="dropdown-node" data-node-id="{n["id"]}">'
+                f'{n["label"]} <span class="dd-degree">度={n["degree"]}</span></div>'
+                for n in nodes_in_type
+            )
+            legend_items += (
+                f'<div class="legend-group" data-type="{t}">'
+                f'<label class="legend-item">'
+                f'<input type="checkbox" class="type-toggle" data-type="{t}" checked '
+                f'style="margin:0 2px 0 0;cursor:pointer;">'
+                f'<span class="legend-dot" style="background:{c}"></span>'
+                f'{label} ({count})</label>'
+                f'<div class="legend-dropdown">{dropdown_items}</div>'
+                f'</div>'
+            )
+
+        # 年份分布
+        years = {}
+        for n in self._nodes.values():
+            if n.first_seen_year:
+                y = str(n.first_seen_year)
+                years[y] = years.get(y, 0) + 1
+        year_info = " · ".join(f"{y}年: {c}个" for y, c in sorted(years.items()))
+
+        # JSON for JS interaction
+        type_nodes_json = _json.dumps(type_node_lists, ensure_ascii=False)
+
+        custom_css = """
+        <style>
+          body { margin: 0; font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #f5f7fb; }
+          .kg-header { background: linear-gradient(135deg, #2563eb, #0891b2); color: white; padding: 1.2rem 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+          .kg-header h1 { font-size: 1.3rem; margin: 0 0 0.3rem; }
+          .kg-header .meta { opacity: 0.85; font-size: 0.85rem; }
+          .kg-header .nav-back { color: white; text-decoration: none; font-size: 0.85rem; opacity: 0.8; }
+          .kg-header .nav-back:hover { opacity: 1; text-decoration: underline; }
+          .kg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; background: white; padding: 0.6rem 2rem; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; }
+          .legend-group { position: relative; display: inline-block; }
+          .legend-item { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; color: #374151; cursor: pointer; transition: background 0.15s; }
+          .legend-item:hover { background: #f0f4f8; }
+          .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+          .legend-dropdown { display: none; position: absolute; top: 100%; left: 0; z-index: 999; background: white; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.12); min-width: 240px; max-height: 280px; overflow-y: auto; padding: 6px 0; }
+          .legend-group:hover .legend-dropdown { display: block; }
+          .dropdown-node { padding: 6px 14px; cursor: pointer; font-size: 0.82rem; transition: background 0.1s; display: flex; justify-content: space-between; align-items: center; }
+          .dropdown-node:hover { background: #eff6ff; color: #2563eb; }
+          .dd-degree { font-size: 0.7rem; color: #94a3b8; }
+          .kg-tip { background: #fffbeb; border-top: 1px solid #fde68a; padding: 0.5rem 2rem; font-size: 0.78rem; color: #92400e; }
+          .kg-footer { text-align: center; padding: 0.6rem; font-size: 0.72rem; color: #94a3b8; border-top: 1px solid #e2e8f0; background: white; }
+          #mynetwork { border: none !important; }
+          /* 自定义 tooltip 浮层 */
+          #kg-tooltip {
+            display: none; position: fixed; z-index: 10000;
+            background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12); padding: 14px 18px;
+            min-width: 220px; max-width: 340px; pointer-events: none;
+            font-size: 0.85rem; line-height: 1.6;
+          }
+          #kg-tooltip .tt-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
+          #kg-tooltip .tt-type { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; margin-bottom: 8px; }
+          #kg-tooltip .tt-row { display: flex; align-items: center; gap: 6px; color: #475569; font-size: 0.82rem; margin: 3px 0; }
+          #kg-tooltip .tt-row .tt-icon { width: 16px; text-align: center; flex-shrink: 0; }
+          #kg-tooltip .tt-desc { margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 0.8rem; }
+          #kg-tooltip .tt-bar { height: 3px; border-radius: 2px; margin-top: 8px; }
+        </style>
+        """
+
+        header_html = f"""
+        {custom_css}
+        <div class="kg-header">
+          <a class="nav-back" href="dashboard.html">← 返回 Dashboard</a>
+          <h1>🕸️ 知识图谱交互式可视化</h1>
+          <div class="meta">{self.node_count} 个节点 · {self.edge_count} 条关系 · {len(type_counts)} 种类型 · 全连通</div>
+        </div>
+        <div class="kg-bar">
+          <span style="font-weight:600;color:#2563eb;margin-right:4px;">图例：</span>
+          {legend_items}
+          <span style="margin-left:auto;color:#6b7280;font-size:0.78rem;">年份: {year_info}</span>
+        </div>
+        <div class="kg-tip">
+          💡 <b>操作提示</b>：滚轮缩放 · 拖拽画布 · 拖拽节点 · 悬停节点查看详情 · 悬停图例展开列表 · 点击列表项定位高亮
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;">
+            🔤 字号：<input type="range" id="fontSlider" min="6" max="40" value="22" style="width:100px;cursor:pointer;"><span id="fontVal" style="min-width:28px">22</span>
+          </span>
+        </div>
+        <div id="kg-tooltip"></div>
+        """
+
+        footer_html = f"""
+        <div class="kg-footer">
+          ScholarMind 知识图谱 · {self.node_count} nodes / {self.edge_count} edges · 节点大小=连接度 · 度≥4 显示标签
+        </div>
+        """
+
+        # 自定义 JS：tooltip 浮层 + 图例交互
+        custom_js = f"""
+        <script>
+        (function() {{
+          var tooltip = document.getElementById('kg-tooltip');
+          var net = network;  // pyvis 暴露的全局变量
+
+          // --- 1. 自定义 Tooltip ---
+          net.on('hoverNode', function(params) {{
+            var nodeId = params.node;
+            var nodeData = net.body.data.nodes.get(nodeId);
+            if (!nodeData || !nodeData.title) return;
+            try {{
+              var d = JSON.parse(nodeData.title);
+              var html = '<div class="tt-name" style="color:' + (d.color||'#333') + '">' + d.name + '</div>';
+              html += '<span class="tt-type" style="background:' + (d.color||'#333') + '22;color:' + (d.color||'#333') + '">' + (d.type||'') + '</span>';
+              if (d.year) html += '<div class="tt-row"><span class="tt-icon">📅</span> 首次出现: ' + d.year + ' 年</div>';
+              if (d.added) html += '<div class="tt-row"><span class="tt-icon">🕐</span> 录入时间: ' + d.added + '</div>';
+              if (d.source) html += '<div class="tt-row"><span class="tt-icon">📎</span> 来源: ' + d.source + '</div>';
+              html += '<div class="tt-row"><span class="tt-icon">🔗</span> 连接数: ' + (d.degree||0) + '</div>';
+              if (d.desc) html += '<div class="tt-desc">📝 ' + d.desc + '</div>';
+              html += '<div class="tt-bar" style="background:' + (d.color||'#333') + '"></div>';
+              tooltip.innerHTML = html;
+              tooltip.style.display = 'block';
+            }} catch(e) {{}}
+          }});
+
+          net.on('blurNode', function() {{
+            tooltip.style.display = 'none';
+          }});
+
+          // 鼠标移动时更新 tooltip 位置
+          document.getElementById('mynetwork').addEventListener('mousemove', function(e) {{
+            if (tooltip.style.display === 'block') {{
+              var x = e.clientX + 15;
+              var y = e.clientY + 15;
+              if (x + 350 > window.innerWidth) x = e.clientX - 260;
+              if (y + 200 > window.innerHeight) y = e.clientY - 180;
+              tooltip.style.left = x + 'px';
+              tooltip.style.top = y + 'px';
+            }}
+          }});
+
+          // --- 2. 图例下拉：点击节点项 → 高亮并聚焦 ---
+          document.querySelectorAll('.dropdown-node').forEach(function(el) {{
+            el.addEventListener('click', function(e) {{
+              e.stopPropagation();
+              var nodeId = this.getAttribute('data-node-id');
+              net.selectNodes([nodeId]);
+              net.focus(nodeId, {{
+                scale: 1.5,
+                animation: {{duration: 600, easingFunction: 'easeInOutQuad'}}
+              }});
+            }});
+          }});
+
+          // --- 3. 字号滑块 ---
+          var slider = document.getElementById('fontSlider');
+          var fontVal = document.getElementById('fontVal');
+          // 记录每个节点的原始字号和类型
+          var origFonts = {{}};
+          var nodeTypes = {{}};
+          var hiddenTypes = {{}};
+          net.body.data.nodes.forEach(function(node) {{
+            origFonts[node.id] = (node.font && node.font.size) || 14;
+            try {{ nodeTypes[node.id] = JSON.parse(node.title).ntype || ''; }} catch(e) {{ nodeTypes[node.id] = ''; }}
+          }});
+
+          if (slider) {{
+            slider.addEventListener('input', function() {{
+              var scale = parseInt(this.value) / 22.0;  // 22 是基准
+              fontVal.textContent = parseInt(this.value);
+              var allNodes = net.body.data.nodes;
+              var updates = [];
+              allNodes.forEach(function(node) {{
+                var hidden = hiddenTypes[nodeTypes[node.id]];
+                var newSize = hidden ? 0 : Math.round(origFonts[node.id] * scale);
+                updates.push({{id: node.id, font: {{size: newSize}}}});
+              }});
+              allNodes.update(updates);
+            }});
+          }}
+
+          // --- 4. Checkbox 切换类型标签显示/隐藏 ---
+          document.querySelectorAll('.type-toggle').forEach(function(cb) {{
+            cb.addEventListener('change', function() {{
+              var type = this.getAttribute('data-type');
+              var show = this.checked;
+              hiddenTypes[type] = !show;
+              var scale = slider ? parseInt(slider.value) / 22.0 : 1.0;
+              var allNodes = net.body.data.nodes;
+              var updates = [];
+              allNodes.forEach(function(node) {{
+                if (nodeTypes[node.id] === type) {{
+                  var newSize = show ? Math.round(origFonts[node.id] * scale) : 0;
+                  updates.push({{id: node.id, font: {{size: newSize}}}});
+                }}
+              }});
+              allNodes.update(updates);
+            }});
+          }});
+        }})();
+        </script>
+        """
+
+        # 注入到 pyvis 生成的 HTML 中
+        enhanced = raw_html.replace("<body>", f"<body>\n{header_html}\n", 1)
+        enhanced = enhanced.replace("</body>", f"\n{footer_html}\n{custom_js}\n</body>", 1)
+
+        output.write_text(enhanced, encoding="utf-8")
         logger.info(f"知识图谱可视化已保存: {output} ({self.node_count} 节点, {self.edge_count} 边)")
         return str(output.resolve())
 

@@ -87,6 +87,7 @@ def cmd_detect_gaps(save: bool = False) -> None:
         "foundation_gap": "🔴 基础概念缺失",
         "isolated_concept": "🟡 孤立概念",
         "single_source": "🟠 单源依赖",
+        "temporal_gap": "🔵 时代盲区",
     }
 
     for gap_type, gap_list in by_type.items():
@@ -140,6 +141,66 @@ def cmd_importance(top_n: int) -> None:
 
     type_counts = Counter(imp.node_type for imp in importance[:top_n])
     print(f"\n**Top {top_n} 类型分布**: " + ", ".join(f"{t}: {c}" for t, c in type_counts.most_common()))
+
+
+# ============================================================
+# 双时态分析 CLI
+# ============================================================
+
+def cmd_temporal() -> None:
+    """双时态分析报告"""
+    store, analyzer = get_analyzer()
+
+    if store.node_count == 0:
+        print("📭 知识图谱为空，无法进行时态分析。")
+        return
+
+    result = analyzer.analyze_temporal()
+
+    print("## 🕰️ 双时态分析报告\n")
+
+    # 时代分布
+    print("### 知识时代分布\n")
+    print("| 年代 | 概念数 | 占比 |")
+    print("|:---|:---|:---|")
+    total_known = sum(v for k, v in result.era_distribution.items() if k != "unknown")
+    for era, count in result.era_distribution.items():
+        if era == "unknown":
+            print(f"| {era} | {count} | — |")
+        else:
+            pct = f"{count*100/total_known:.0f}%" if total_known > 0 else "0%"
+            print(f"| {era} | {count} | {pct} |")
+    print()
+
+    # 时代偏向
+    bias_icon = {"偏旧": "🟠", "均衡": "🟢", "偏新": "🔵"}[result.era_bias]
+    print(f"时代偏向: {bias_icon} **{result.era_bias}** (平均年份: {result.avg_year:.0f})")
+    if result.year_span:
+        print(f"年份跨度: {result.year_span[0]} ~ {result.year_span[1]}")
+    print(f"知识新鲜度: **{result.freshness_score:.2f}** (0=旧, 1=前沿)\n")
+
+    # 学习进度
+    print("### 学习进度\n")
+    print("| 日期 | 新增节点 |")
+    print("|:---|:---|")
+    for date, count in result.learning_velocity.items():
+        print(f"| {date} | +{count} |")
+    print()
+
+    # 最近关注方向
+    if result.recent_focus_areas:
+        print("### 最近关注方向\n")
+        for i, focus in enumerate(result.recent_focus_areas, 1):
+            print(f"{i}. {focus}")
+        print()
+
+    # 陈旧重要概念
+    if result.stale_concepts:
+        print("### ⚙️ 需关注演进的核心概念\n")
+        print("以下概念重要但来自较旧年代，建议了解其最新演进：")
+        for c in result.stale_concepts:
+            print(f"- {c}")
+        print()
 
 
 # ============================================================
@@ -353,14 +414,15 @@ def main():
         epilog="""
 Actions:
   learning_path  Generate personalized learning path (with health, gaps, recommendations)
-  detect_gaps    Detect knowledge gaps (foundation, isolated, single-source)
-  importance     Get concept importance ranking (PageRank + centrality)
+  detect_gaps    Detect knowledge gaps (foundation, isolated, single-source, temporal)
+  importance     Get concept importance ranking (PageRank + centrality + recency)
+  temporal       Dual-temporal analysis (era distribution, learning velocity, freshness)
         """,
     )
     parser.add_argument(
         "--action",
         required=True,
-        choices=["learning_path", "detect_gaps", "importance"],
+        choices=["learning_path", "detect_gaps", "importance", "temporal"],
         help="Action to perform",
     )
     parser.add_argument("--focus", default="", help="Focus area for learning path (e.g., 'beamforming')")
@@ -377,6 +439,8 @@ Actions:
             cmd_detect_gaps(save=args.save)
         elif args.action == "importance":
             cmd_importance(args.top)
+        elif args.action == "temporal":
+            cmd_temporal()
     except FileNotFoundError as e:
         print(f"⚠️ 知识图谱文件不存在: {e}", file=sys.stderr)
         print("请先通过 knowledge-graph MCP 工具添加论文。")
