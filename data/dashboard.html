@@ -38,10 +38,10 @@
         .c5 .value { color: #7c3aed; }
 
         /* Charts */
-        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 2rem; }
+        .charts { display: grid; grid-template-columns: 1fr; gap: 1.2rem; margin-bottom: 2rem; }
         .chart-box { background: var(--surface); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
         .chart-box h3 { color: var(--accent); margin-bottom: 0.8rem; font-size: 1em; }
-        canvas { max-height: 260px; }
+        canvas { max-height: 300px; width: 100%; }
 
         /* Sections */
         section { background: var(--surface); padding: 1.5rem 2rem; border-radius: 12px; margin-bottom: 1.2rem; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
@@ -187,6 +187,7 @@ new Chart(growthCtx, {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: { legend: { labels: { color: '#64748b' } } },
         scales: {
             x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
