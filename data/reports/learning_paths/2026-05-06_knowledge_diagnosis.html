@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识诊断报告 — ScholarMind</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f4f8; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --text-dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); line-height: 1.7; min-height: 100vh; }
+  .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+  .nav-back { display: inline-block; color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; }
+  .nav-back:hover { text-decoration: underline; }
+  header { background: linear-gradient(135deg, #2563eb, #0891b2); color: white; padding: 2rem; border-radius: 16px; margin-bottom: 2rem; box-shadow: 0 4px 20px rgba(37,99,235,0.2); }
+  header h1 { font-size: 1.6rem; margin-bottom: 0.3rem; }
+  header .desc { opacity: 0.9; font-size: 0.95rem; margin-top: 0.5rem; line-height: 1.5; }
+  header .meta-line { opacity: 0.75; font-size: 0.85rem; margin-top: 0.8rem; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card { background: var(--surface); padding: 1.2rem; border-radius: 12px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid var(--border); }
+  .stat-card .value { font-size: 2rem; font-weight: 700; }
+  .stat-card .label { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+  .stat-card.blue .value { color: var(--accent); }
+  .stat-card.teal .value { color: var(--accent2); }
+  .stat-card.orange .value { color: var(--warn); }
+  .stat-card.green .value { color: var(--success); }
+  .stat-card.purple .value { color: #7c3aed; }
+  section { background: var(--surface); padding: 1.5rem 2rem; margin-bottom: 1.5rem; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); border: 1px solid var(--border); }
+  section h2 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; }
+  section p.desc { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 0.8rem 0; }
+  th { background: var(--surface2); text-align: left; padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--border); color: var(--text-dim); font-weight: 600; font-size: 0.85rem; }
+  td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); }
+  tr:hover { background: #f8fafc; }
+  .gap-group { margin-bottom: 1.5rem; }
+  .gap-group-title { font-size: 1rem; font-weight: 600; margin-bottom: 0.5rem; }
+  .gap-group-desc { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 0.8rem; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: 600; }
+  .badge-type { background: #dbeafe; color: var(--accent); }
+  .badge-warn { background: #fef3c7; color: var(--warn); }
+  .badge-ok { background: #d1fae5; color: var(--success); }
+  .badge-new { background: #ede9fe; color: #7c3aed; }
+  .action-card { background: #f0fdf4; border: 1px solid #86efac; border-radius: 10px; padding: 1rem 1.2rem; margin: 0.8rem 0; }
+  .action-card.warn { background: #fffbeb; border-color: #fcd34d; }
+  .action-card.info { background: #eff6ff; border-color: #93c5fd; }
+  .action-card h4 { font-size: 0.95rem; margin-bottom: 0.3rem; }
+  .action-card p { font-size: 0.85rem; color: var(--text-dim); }
+  .progress-bar { display: inline-block; width: 80px; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; vertical-align: middle; }
+  .progress-fill { height: 100%; border-radius: 4px; }
+  .fill-good { background: var(--success); }
+  .fill-warn { background: var(--warn); }
+  .compare-note { background: #fefce8; border: 1px solid #fde047; border-radius: 8px; padding: 0.8rem 1rem; font-size: 0.85rem; margin: 1rem 0; }
+  footer { text-align: center; color: var(--text-dim); font-size: 0.8rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<header>
+  <h1>🔬 知识诊断报告</h1>
+  <p class="desc">综合分析你的知识图谱健康度、识别知识盲区，并给出推荐的学习路径和下一步行动建议。<br>
+  本报告将盲区检测和学习路径分析合二为一，让你一目了然地看到「哪里薄弱」以及「如何补强」。</p>
+  <p class="meta-line">📅 生成于 2026-05-06 · 基于 4 篇已分析论文 · 知识图谱 95 节点 / 118 关系</p>
+</header>
+
+<!-- ==================== 健康度 ==================== -->
+<div class="stats">
+  <div class="stat-card blue"><div class="value">95</div><div class="label">知识节点</div></div>
+  <div class="stat-card teal"><div class="value">118</div><div class="label">知识关系</div></div>
+  <div class="stat-card purple"><div class="value">4</div><div class="label">已分析论文</div></div>
+  <div class="stat-card orange"><div class="value">44</div><div class="label">知识盲区</div></div>
+  <div class="stat-card green"><div class="value">1</div><div class="label">连通分量</div></div>
+</div>
+
+<div class="compare-note">
+  📈 <strong>与上次对比</strong>：节点 30→95（+217%），关系 35→118（+237%），论文 1→4。图谱已全连通（1 个连通分量），说明四篇论文的知识已完全打通。盲区从 17→44 数量增加，是因为新论文引入了更多新概念——这是正常的，随着后续论文分析会逐步消除。
+</div>
+
+<!-- ==================== 概念重要性 ==================== -->
+<section>
+  <h2>🏆 概念重要性排名（Top 10）</h2>
+  <p class="desc">基于 PageRank + 度中心性 + 介数中心性综合排名。分数越高的概念在你的知识体系中越核心。标注 ⚠ 的概念同时存在盲区，需优先补强。</p>
+  <table>
+    <thead><tr><th>#</th><th>概念</th><th>类型</th><th>综合评分</th><th>连接数</th><th>状态</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>Transformer</strong></td><td><span class="badge badge-type">method</span></td><td>0.770</td><td>23</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>2</td><td><strong>Scaled Dot-Product Attention</strong></td><td><span class="badge badge-type">method</span></td><td>0.648</td><td>4</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>3</td><td><strong>Long-term Memory</strong></td><td><span class="badge badge-type">concept</span></td><td>0.589</td><td>3</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>4</td><td><strong>Memory Retrieval</strong></td><td><span class="badge badge-type">concept</span></td><td>0.589</td><td>3</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>5</td><td><strong>Planning Module</strong></td><td><span class="badge badge-type">method</span></td><td>0.531</td><td>7</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>6</td><td><strong>LLM-based Agent Architecture</strong></td><td><span class="badge badge-type">method</span></td><td>0.509</td><td>12</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>7</td><td><strong>MemGPT</strong></td><td><span class="badge badge-type">method</span></td><td>0.500</td><td>15</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>8</td><td><strong>Memory Module</strong></td><td><span class="badge badge-type">method</span></td><td>0.488</td><td>8</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>9</td><td><strong>Generative Agents</strong></td><td><span class="badge badge-type">method</span></td><td>0.436</td><td>15</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+      <tr><td>10</td><td><strong>Short-term Memory</strong></td><td><span class="badge badge-type">concept</span></td><td>0.409</td><td>2</td><td><span class="badge badge-warn">⚠ 单源</span></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 盲区分析 ==================== -->
+<section>
+  <h2>⚠️ 知识盲区分析（共 44 个）</h2>
+  <p class="desc">「知识盲区」分两类：<strong>孤立概念</strong>（连接少，只从一个方向认识）和 <strong>单源依赖</strong>（只从一篇论文了解）。随着分析更多论文，盲区会自然减少。</p>
+
+  <!-- 单源依赖 -->
+  <div class="gap-group">
+    <div class="gap-group-title">🟠 单源依赖（11 个） — 只从一篇论文了解的核心概念</div>
+    <p class="gap-group-desc">虽然这些概念连接丰富（说明它们重要），但信息全部来自同一篇论文。需要更多视角来验证和加深理解。</p>
+    <table>
+      <thead><tr><th>概念</th><th>来源论文</th><th>重要性</th><th>如何补强</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Transformer</strong></td><td>Attention Is All You Need</td><td>0.770 🔴</td><td>分析 ViT / BERT / GPT 论文，了解 Transformer 的变体和演进</td></tr>
+        <tr><td><strong>Scaled Dot-Product Attention</strong></td><td>Attention Is All You Need</td><td>0.648</td><td>阅读 Flash Attention / Linear Attention 了解效率改进</td></tr>
+        <tr><td><strong>LLM-based Agent Architecture</strong></td><td>Agent Survey</td><td>0.509</td><td>分析 AutoGPT / LangChain Agent 等实际实现来交叉验证</td></tr>
+        <tr><td><strong>Memory Module</strong></td><td>Agent Survey</td><td>0.488</td><td>✅ 已有 MemGPT + Generative Agents 两种实现视角</td></tr>
+        <tr><td><strong>Planning Module</strong></td><td>Agent Survey</td><td>0.531</td><td>分析 Tree of Thoughts / Graph of Thoughts 原始论文</td></tr>
+        <tr><td><strong>Long-term Memory</strong></td><td>Agent Survey</td><td>0.589</td><td>✅ 已有 MemGPT(archival) + GA(memory stream) 两种实现</td></tr>
+        <tr><td><strong>Memory Retrieval</strong></td><td>Agent Survey</td><td>0.589</td><td>✅ 已有 GA(三因子) + MemGPT(embedding search) 两种方式</td></tr>
+        <tr><td><strong>Short-term Memory</strong></td><td>Agent Survey</td><td>0.409</td><td>✅ 已有 MemGPT(main context) 的具体实现</td></tr>
+        <tr><td><strong>Memory Reflection</strong></td><td>Agent Survey</td><td>0.408</td><td>✅ 已有 GA(reflection mechanism) 的具体实现</td></tr>
+        <tr><td><strong>MemGPT</strong></td><td>MemGPT 论文</td><td>0.500</td><td>作为单篇论文的方法，单源是正常的</td></tr>
+        <tr><td><strong>Generative Agents</strong></td><td>GA 论文</td><td>0.436</td><td>作为单篇论文的方法，单源是正常的</td></tr>
+      </tbody>
+    </table>
+    <div class="compare-note">
+      💡 <strong>关键发现</strong>：虽然检测器标记了 11 个「单源依赖」，但实际上 Memory Module / Long-term Memory / Memory Retrieval / Memory Reflection / Short-term Memory 这 5 个概念已经有了 MemGPT + Generative Agents 的多角度实现。<strong>真正需要补强的只有 Transformer 和 Attention（缺少变体/改进的视角）以及 Planning Module（缺少原始方法论文）</strong>。
+    </div>
+  </div>
+
+  <!-- 孤立概念 -->
+  <div class="gap-group">
+    <div class="gap-group-title">🟡 孤立概念（33 个） — 连接数 ≤ 1 的节点</div>
+    <p class="gap-group-desc">按来源论文分组。大部分是特定论文的子概念（evaluation metric, dataset, tool 等），在当前图谱规模下是正常的。</p>
+
+    <table>
+      <thead><tr><th>来源</th><th>孤立概念</th><th>严重性</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Transformer</strong><br>(9个)</td><td>Encoder-Decoder, Residual Connection, Layer Normalization, Label Smoothing, Beam Search, BPE, BLEU, Perplexity, Training FLOPs</td><td>低</td><td>都是通用 NLP/DL 概念，分析更多论文时会自动获得连接</td></tr>
+        <tr><td><strong>Agent Survey</strong><br>(8个)</td><td>CoT, ToT, LLM+P, Reflexion, Prompt Engineering, Agent Fine-tuning, Mechanism Engineering, Software Development, Multi-Agent Collab, Subj/Obj Evaluation, Agent Benchmark</td><td>低</td><td>综述中提到的子概念。分析对应原始论文（如 CoT / ToT 论文）可以深化</td></tr>
+        <tr><td><strong>MemGPT</strong><br>(9个)</td><td>Main/External Context, FIFO Queue, Recall/Archival Storage, Self-directed Mem Mgmt, Inner Thoughts, Context Window Overflow, Memory-as-OS Analogy, MSC, DocQA</td><td>低</td><td>MemGPT 特有的架构细节。作为单篇论文的子概念是正常的</td></tr>
+        <tr><td><strong>Gen. Agents</strong><br>(7个)</td><td>Memory Stream, Retrieval Function, Reflection Mechanism, Agent Planning/Reacting, Believable Behavior, Emergent Social Behavior, Smallville, Importance Scoring, Believability Eval</td><td>低</td><td>GA 特有的架构和评估概念。作为单篇论文的子概念是正常的</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ==================== 学习路径 ==================== -->
+<section>
+  <h2>📚 推荐学习路径</h2>
+  <p class="desc">基于盲区严重性 × 概念重要性排序。过滤掉「虽被标记为盲区但实际已有多源理解」的概念，聚焦真正需要补强的方向。</p>
+
+  <div class="gap-group-title">🔴 第一优先级：补强核心概念的多源理解</div>
+  <table>
+    <thead><tr><th>#</th><th>推荐阅读</th><th>补强概念</th><th>本地状态</th><th>预计新增连接</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td><strong>ViT</strong> — An Image is Worth 16x16 Words</td><td>Transformer, Self-Attention, Positional Encoding</td><td>✅ 本地已有</td><td>~15-20 条</td></tr>
+      <tr><td>2</td><td><strong>BERT / GPT 系列</strong></td><td>Transformer, Attention, Pre-training</td><td>❌ 需下载</td><td>~20-30 条</td></tr>
+    </tbody>
+  </table>
+
+  <div class="gap-group-title" style="margin-top:1.5rem">🟡 第二优先级：深化 Agent 方法论</div>
+  <table>
+    <thead><tr><th>#</th><th>推荐阅读</th><th>补强概念</th><th>理由</th></tr></thead>
+    <tbody>
+      <tr><td>3</td><td><strong>ReAct</strong> 论文</td><td>Planning Module, ReAct, CoT</td><td>✅ 本地已有 — 深化 Planning 中 with-feedback 方法的理解</td></tr>
+      <tr><td>4</td><td><strong>Tree of Thoughts</strong> 论文</td><td>ToT, Planning without feedback</td><td>❌ 需下载 — 深化 Planning 中 without-feedback 方法</td></tr>
+      <tr><td>5</td><td><strong>CAMEL / AutoGen</strong></td><td>Multi-Agent Collaboration</td><td>❌ 需下载 — 补充多 Agent 协作的具体实现</td></tr>
+    </tbody>
+  </table>
+
+  <div class="gap-group-title" style="margin-top:1.5rem">🟢 第三优先级：自然消除（无需主动行动）</div>
+  <p class="gap-group-desc">以下盲区会随着正常论文分析自动消除，不需要专门去阅读：</p>
+  <table>
+    <thead><tr><th>概念类别</th><th>数量</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>NLP/DL 通用概念（BPE, LayerNorm, BLEU...）</td><td>~9</td><td>分析 BERT/GPT/ViT 时会自动获得多源连接</td></tr>
+      <tr><td>单论文特有细节（Smallville, FIFO Queue...）</td><td>~16</td><td>作为特定系统的内部组件，单源是合理的</td></tr>
+      <tr><td>评估/数据集（MSC, DocQA, Believability...）</td><td>~5</td><td>分析更多 Agent 论文时会补充新的评估连接</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== 行动建议 ==================== -->
+<section>
+  <h2>🚀 下一步行动建议</h2>
+  <p class="desc">按优先级排序的具体行动项。</p>
+
+  <div class="action-card">
+    <h4>✅ 行动 1：分析本地已有的 ViT 论文（最高优先级）</h4>
+    <p>运行 <code>/paper-analysis</code> 分析 <code>data/papers/ViT.pdf</code>。这是消除 Transformer 单源依赖最高效的方式——一次性验证 Transformer 在 CV 领域的迁移能力，同时为 Self-Attention 和 Positional Encoding 提供第二个数据源。预计新增 15-20 个图谱连接。</p>
+  </div>
+
+  <div class="action-card">
+    <h4>✅ 行动 2：分析本地已有的 ReAct 论文</h4>
+    <p>运行 <code>/paper-analysis</code> 分析 <code>data/papers/ReAct.pdf</code>。ReAct 是 Planning Module 中 "with-feedback" 范式的开创性工作，分析后可深化对 CoT + Acting 交替机制的理解，同时消除 Planning Module 的单源依赖。</p>
+  </div>
+
+  <div class="action-card warn">
+    <h4>💡 行动 3：重新运行 /knowledge-build</h4>
+    <p>完成行动 1-2 后，重新运行诊断。预计盲区数量将从 44 降至 ~30，单源依赖从 11 降至 ~5。</p>
+  </div>
+
+  <div class="action-card info">
+    <h4>📊 图谱健康度评估</h4>
+    <p><strong>当前状态：良好</strong>。95 节点 / 118 关系 / 1 连通分量 → 图谱已完全连通，四篇论文形成了以 Transformer 为核心、Agent 架构为中枢的知识网络。主要问题是 Transformer 本身只有一篇原始论文支撑（度=23 但单源），分析 ViT 后可基本解决。</p>
+  </div>
+</section>
+
+<footer>
+  ScholarMind 知识诊断报告 · 生成于 2026-05-06 · 基于 knowledge_graph.json (95 nodes, 118 edges, 4 papers)
+</footer>
+
+</div>
+</body>
+</html>

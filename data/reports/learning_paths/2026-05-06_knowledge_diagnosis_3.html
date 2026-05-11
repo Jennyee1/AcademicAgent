@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识诊断 #3 — ReAct 入图后五论文全景</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #fff; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.7; }
+  .container { max-width: 920px; margin: 0 auto; }
+  .nav-back { color: var(--accent); text-decoration: none; font-size: .9rem; }
+  .nav-back:hover { text-decoration: underline; }
+  h1 { color: var(--accent); font-size: 1.6rem; margin: .5rem 0 .3rem; }
+  h2 { color: var(--accent2); font-size: 1.2rem; margin: 1.8rem 0 .6rem; border-bottom: 2px solid var(--border); padding-bottom: .3rem; }
+  h3 { color: var(--warn); font-size: 1rem; margin: 1rem 0 .4rem; }
+  .meta { color: var(--dim); font-size: .88rem; margin-bottom: 1.5rem; }
+  .card { background: var(--surface); border-radius: 10px; padding: 1.1rem 1.4rem; margin: .8rem 0; border-left: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.danger { border-left-color: var(--danger); }
+  .card.success { border-left-color: var(--success); }
+  table { width: 100%; border-collapse: collapse; margin: .6rem 0; }
+  th { background: #f0f4f8; text-align: left; padding: .5rem .7rem; color: var(--accent); font-size: .85rem; border-bottom: 2px solid var(--border); }
+  td { padding: .5rem .7rem; border-bottom: 1px solid var(--border); font-size: .88rem; }
+  tr:hover { background: #f8fafc; }
+  ul,ol { padding-left: 1.4rem; }
+  li { margin: .25rem 0; }
+  .summary-box { background: linear-gradient(135deg,#eff6ff,#f0fdfa); padding: 1.3rem; border-radius: 12px; margin: .8rem 0; border: 1px solid #bfdbfe; }
+  .tag { display: inline-block; background: #dbeafe; color: var(--accent); padding: 1px 7px; border-radius: 10px; font-size: .78rem; margin: 2px; }
+  .tag.red { background: #fee2e2; color: var(--danger); }
+  .tag.yellow { background: #fef3c7; color: var(--warn); }
+  .tag.green { background: #d1fae5; color: var(--success); }
+  .progress { background: #e2e8f0; border-radius: 6px; height: 10px; overflow: hidden; margin: .3rem 0; }
+  .progress-bar { height: 100%; border-radius: 6px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+  @media (max-width:600px) { .grid2 { grid-template-columns: 1fr; } }
+  footer { text-align: center; padding: .8rem; font-size: .75rem; color: var(--dim); margin-top: 2rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<h1>🔬 知识诊断报告 #3</h1>
+<div class="meta">
+  📅 2026-05-06 · 五论文全景：ReAct 入图后推理-行动体系补全 · 115 节点 / 140 边
+</div>
+
+<div class="summary-box">
+  <strong style="color:var(--accent)">诊断摘要：</strong>
+  本次新增 ReAct 论文后，图谱从 95→115 节点、118→140 边，形成以 <strong>Transformer → Agent Architecture → ReAct/MemGPT/Generative Agents</strong> 为主干的完整知识网络。ReAct 的加入补全了「推理-行动协同」维度，使 Planning Module 的入度从 2 增至 4，成为第三重要的方法节点。当前主要瓶颈：<strong>20 个核心概念仍为单源依赖</strong>，需通过跨论文交叉验证来巩固理解。
+</div>
+
+<!-- ==================== 图谱健康度 ==================== -->
+<h2>📊 图谱健康度</h2>
+<div class="grid2">
+  <div class="card">
+    <h3>📈 规模指标</h3>
+    <table>
+      <tr><td>总节点</td><td><strong>115</strong> <span class="tag green">+20</span></td></tr>
+      <tr><td>总关系</td><td><strong>140</strong> <span class="tag green">+22</span></td></tr>
+      <tr><td>论文数</td><td><strong>5</strong> <span class="tag green">+1 (ReAct)</span></td></tr>
+      <tr><td>平均度</td><td>2.43</td></tr>
+      <tr><td>连通性</td><td>全连通（单个连通分量）</td></tr>
+    </table>
+  </div>
+  <div class="card">
+    <h3>🧬 节点类型分布</h3>
+    <table>
+      <tr><td>Method（方法）</td><td><strong>36</strong> (31%)</td></tr>
+      <tr><td>Concept（概念）</td><td><strong>31</strong> (27%)</td></tr>
+      <tr><td>Author（作者）</td><td><strong>27</strong> (23%)</td></tr>
+      <tr><td>Dataset（数据集）</td><td><strong>9</strong> (8%)</td></tr>
+      <tr><td>Paper（论文）</td><td><strong>5</strong> (4%)</td></tr>
+      <tr><td>Metric + Tool</td><td><strong>7</strong> (6%)</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== 时态分析 ==================== -->
+<h2>🕰️ 双时态分析</h2>
+<div class="card warn">
+  <table>
+    <tr><th>维度</th><th>数值</th><th>解读</th></tr>
+    <tr><td>知识年份跨度</td><td>2017 ~ 2023</td><td>仅覆盖 7 年，缺少 pre-2017 经典</td></tr>
+    <tr><td>平均年份</td><td>2021</td><td>🔵 偏新 — 前沿方法占比高，但经典基础薄弱</td></tr>
+    <tr><td>新鲜度指数</td><td><strong>0.70</strong></td><td>对于 Agent 领域属于合理范围</td></tr>
+    <tr><td>时代分布</td><td>pre-2015: 0% / 2015-19: 25% / 2020+: 75%</td><td>2020+ 概念占绝对主导</td></tr>
+    <tr><td>录入速度</td><td>1 天 115 节点</td><td>高密度短期学习阶段</td></tr>
+  </table>
+  <p style="margin-top:.6rem;color:var(--dim)">
+    <strong>时代偏差诊断：</strong>当前知识体系缺少 2017 年以前的经典方法（如 LSTM、Seq2Seq、Word2Vec）。虽然对 Agent 研究方向影响不大，但在面试中常会被追问「Transformer 之前人们怎么做 sequence modeling」，建议至少了解 RNN/LSTM → Attention → Transformer 的演进脉络。
+  </p>
+</div>
+
+<!-- ==================== 重要性排名 ==================== -->
+<h2>🏆 概念重要性 Top 10</h2>
+<div class="card">
+  <p style="color:var(--dim);margin-bottom:.5rem">综合评分 = 0.35×PageRank + 0.25×Degree + 0.15×InDegree + 0.10×Betweenness + 0.15×Recency</p>
+  <table>
+    <tr><th>#</th><th>概念</th><th>类型</th><th>评分</th><th>度数</th><th>核心地位</th></tr>
+    <tr><td>1</td><td><strong>ReAct 论文</strong></td><td>paper</td><td>0.724</td><td>10</td><td>新入图的高连接枢纽，连通推理+行动两大子图</td></tr>
+    <tr><td>2</td><td><strong>Transformer</strong></td><td>method</td><td>0.666</td><td>23</td><td>全图度数最高的绝对核心，所有方法的基础</td></tr>
+    <tr><td>3</td><td><strong>Planning Module</strong></td><td>method</td><td>0.582</td><td>8</td><td>ReAct 入图后入度 +2，成为 Agent 架构关键桥梁</td></tr>
+    <tr><td>4</td><td><strong>Long-term Memory</strong></td><td>concept</td><td>0.552</td><td>3</td><td>MemGPT + Survey 双源覆盖，PageRank 高</td></tr>
+    <tr><td>5</td><td><strong>Memory Retrieval</strong></td><td>concept</td><td>0.552</td><td>3</td><td>与 Long-term Memory 同等重要</td></tr>
+    <tr><td>6</td><td><strong>Memory Module</strong></td><td>method</td><td>0.539</td><td>9</td><td>ReAct relates_to 后入度达 5，多论文交叉验证</td></tr>
+    <tr><td>7</td><td><strong>Scaled Dot-Product Attn</strong></td><td>method</td><td>0.532</td><td>4</td><td>Transformer 核心子模块，PageRank 高</td></tr>
+    <tr><td>8</td><td><strong>MemGPT</strong></td><td>method</td><td>0.514</td><td>15</td><td>度数高但单源，需交叉验证</td></tr>
+    <tr><td>9</td><td><strong>LLM Agent Architecture</strong></td><td>method</td><td>0.509</td><td>12</td><td>ReAct is_instance_of 后地位提升</td></tr>
+    <tr><td>10</td><td><strong>ReAct 方法</strong></td><td>method</td><td>0.486</td><td>13</td><td>新增核心方法，连接 12 个下游概念</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 盲区分析 ==================== -->
+<h2>🔍 盲区深度分析</h2>
+
+<h3>盲区总览</h3>
+<table>
+  <tr><th>类别</th><th>数量</th><th>严重程度</th><th>核心问题</th></tr>
+  <tr><td><span class="tag red">🔴 基础盲区</span></td><td><strong>5</strong></td><td>高 (0.50-0.60)</td><td>核心概念属性不足，缺少深入理解的证据</td></tr>
+  <tr><td><span class="tag">🟡 孤立概念</span></td><td><strong>26</strong></td><td>中 (0.30-0.45)</td><td>度数=1 的碎片化知识，未与其他概念建立连接</td></tr>
+  <tr><td><span class="tag yellow">🟠 单源依赖</span></td><td><strong>20</strong></td><td>中 (0.40)</td><td>仅从 1 篇论文了解，存在理解偏差风险</td></tr>
+  <tr><td><span class="tag green">🔵 时代盲区</span></td><td><strong>5</strong></td><td>低-中 (0.35-0.40)</td><td>知识偏新，经典基础和最新演进都有盲点</td></tr>
+</table>
+
+<h3>🔴 基础盲区（最需优先解决）</h3>
+<div class="card danger">
+  <p style="margin-bottom:.5rem"><strong>问题本质：</strong>这些概念在图谱中结构重要性高（PageRank Top 12%），但节点属性稀少（仅 1 条属性），说明你「知道它存在」但「不深入理解它」。</p>
+  <table>
+    <tr><th>概念</th><th>严重度</th><th>诊断</th><th>行动建议</th></tr>
+    <tr><td><strong>Transformer</strong></td><td>0.60</td><td>全图度=23 的绝对核心，但属性仅有 1 条</td><td>补充：位置编码、训练技巧、与 RNN 对比、变体（GPT/BERT/T5）</td></tr>
+    <tr><td><strong>Self-Attention</strong></td><td>0.55</td><td>作为 Transformer 底层机制，理解深度不足</td><td>补充：复杂度分析 O(n²)、稀疏注意力、线性注意力等改进</td></tr>
+    <tr><td><strong>Multi-Head Attention</strong></td><td>0.55</td><td>多头注意力的「为什么需要多头」未深入</td><td>补充：多头的子空间学习直觉、头数选择、冗余头分析</td></tr>
+    <tr><td><strong>ReAct</strong></td><td>0.50</td><td>刚入图，属性丰富但图谱中仅单源</td><td>阅读 ReAct 的后续工作（如 Reflexion, LATS, AutoGPT）</td></tr>
+    <tr><td><strong>Chain-of-Thought</strong></td><td>0.50</td><td>作为 ReAct 的对比基线，但独立理解不足</td><td>阅读 CoT 原论文（Wei et al. 2022），补充 Zero-shot CoT、CoT-SC</td></tr>
+  </table>
+</div>
+
+<h3>🟠 单源依赖 Top 5（理解偏差最高风险）</h3>
+<div class="card warn">
+  <p style="margin-bottom:.5rem"><strong>问题本质：</strong>这些重要概念仅从 1 篇论文中获取，你的理解完全依赖该论文作者的视角。如果原论文有偏差或遗漏，你的认知也会继承这些缺陷。</p>
+  <table>
+    <tr><th>概念</th><th>当前来源</th><th>交叉验证建议</th></tr>
+    <tr><td><strong>Transformer</strong></td><td>Attention Is All You Need</td><td>阅读 BERT/GPT 论文看 Transformer 的不同应用形态</td></tr>
+    <tr><td><strong>LLM Agent Architecture</strong></td><td>Agent Survey</td><td>阅读 AutoGPT、BabyAGI 论文看实际 Agent 架构差异</td></tr>
+    <tr><td><strong>Planning Module</strong></td><td>Agent Survey</td><td>ReAct 已部分交叉验证，但还需 Tree of Thoughts、LLM+P 原论文</td></tr>
+    <tr><td><strong>Memory Module</strong></td><td>Agent Survey</td><td>MemGPT 和 Generative Agents 已交叉验证 ✅ 但缺少 RAG 视角</td></tr>
+    <tr><td><strong>ReAct</strong></td><td>ReAct 原论文</td><td>阅读 Reflexion（ReAct + 自我反思）和 LATS（ReAct + 树搜索）</td></tr>
+  </table>
+</div>
+
+<h3>🟡 孤立概念（碎片化知识前 5）</h3>
+<div class="card">
+  <p style="margin-bottom:.5rem"><strong>问题本质：</strong>这些概念度数=1，与图谱中其他知识几乎没有连接。它们像「漂浮的孤岛」，无法参与知识的关联推理。</p>
+  <ul>
+    <li><strong>Software Development</strong> — 仅连接到 Agent Survey，缺少与具体 Agent 方法（如 MetaGPT、ChatDev）的关联</li>
+    <li><strong>Multi-Agent Collaboration</strong> — 应连接到 Generative Agents（25 个 Agent 社会模拟就是多智能体协作的典范）</li>
+    <li><strong>HotpotQA / FEVER / ALFWorld / WebShop</strong> — ReAct 的 4 个评测基准，目前仅与 ReAct 论文节点相连，应补充它们被其他方法使用的信息</li>
+    <li><strong>Believability Evaluation</strong> — Generative Agents 的评估指标，但未连接到更广泛的 Agent 评估框架</li>
+  </ul>
+</div>
+
+<!-- ==================== 学习路径 ==================== -->
+<h2>📚 推荐学习路径</h2>
+
+<h3>🔴 第一阶段：巩固基础（1-2 天）</h3>
+<div class="card danger">
+  <p><strong>目标：</strong>消除基础盲区，确保核心概念有深入、多源的理解</p>
+  <ol>
+    <li><strong>Chain-of-Thought 原论文</strong> (Wei et al., 2022) — 作为 ReAct 的核心对照基线，必须独立深入理解 CoT 的能力边界和失败模式。阅读后可同时消除 2 个盲区（CoT + CoT-SC）</li>
+    <li><strong>Transformer 变体综述</strong> — 阅读一篇 Transformer 综述（如 "A Survey of Transformers"），补充位置编码、预训练范式（BERT vs GPT）、高效注意力等知识，交叉验证你对 Transformer 的理解</li>
+  </ol>
+</div>
+
+<h3>🟡 第二阶段：拓展连接（3-5 天）</h3>
+<div class="card warn">
+  <p><strong>目标：</strong>消除单源依赖，将孤立概念编织入知识网络</p>
+  <ol>
+    <li><strong>Reflexion</strong> (Shinn et al., 2023) — ReAct + 自我反思，直接扩展 ReAct 的能力边界。同时交叉验证 ReAct 和 Memory Module</li>
+    <li><strong>Toolformer / Gorilla</strong> — Agent 工具使用范式，补充 Action Module 的另一视角（函数调用 vs ReAct 的 search/lookup）</li>
+    <li><strong>Tree of Thoughts</strong> (Yao et al., 2023) — 同一作者的后续工作，将 CoT 从链式推理扩展为树搜索，与 ReAct 形成推理范式的三角验证</li>
+  </ol>
+</div>
+
+<h3>🟢 第三阶段：前沿追踪（持续）</h3>
+<div class="card success">
+  <p><strong>目标：</strong>覆盖最新进展，消除时代盲区</p>
+  <ol>
+    <li><strong>LATS / AgentQ</strong> — 2024 年最新的 ReAct + MCTS 方法，展示推理-行动范式的最新演进</li>
+    <li><strong>RAG (Retrieval-Augmented Generation)</strong> — 作为 ReAct 和 MemGPT 的底层检索范式，补充 Memory Retrieval 概念的工程实现视角</li>
+    <li><strong>LangGraph / CrewAI</strong> — Agent 框架层面的实现，连接理论概念到工程落地</li>
+  </ol>
+</div>
+
+<!-- ==================== 与上次对比 ==================== -->
+<h2>📈 与上次诊断对比</h2>
+<table>
+  <tr><th>指标</th><th>#2 (上次)</th><th>#3 (本次)</th><th>变化</th></tr>
+  <tr><td>图谱节点</td><td>95</td><td>115</td><td style="color:var(--success)">+20 (↑21%)</td></tr>
+  <tr><td>图谱关系</td><td>118</td><td>140</td><td style="color:var(--success)">+22 (↑19%)</td></tr>
+  <tr><td>论文数</td><td>4</td><td>5</td><td style="color:var(--success)">+1 (ReAct)</td></tr>
+  <tr><td>基础盲区</td><td>3</td><td>5</td><td style="color:var(--danger)">+2 (CoT, ReAct 新增)</td></tr>
+  <tr><td>单源依赖</td><td>18</td><td>20</td><td style="color:var(--warn)">+2 (ReAct 新增概念)</td></tr>
+  <tr><td>时代盲区</td><td>5</td><td>5</td><td>不变</td></tr>
+  <tr><td>Planning 入度</td><td>2</td><td>4</td><td style="color:var(--success)">+2 (ReAct 交叉验证)</td></tr>
+  <tr><td>Memory 入度</td><td>3</td><td>5</td><td style="color:var(--success)">+2 (ReAct 交叉验证)</td></tr>
+</table>
+<div class="card success">
+  <p><strong>关键进展：</strong>ReAct 的加入使「推理-行动」维度从零建立，Planning Module 和 Memory Module 获得了来自 ReAct 的独立交叉验证（不再仅依赖 Survey 的综述视角）。但同时引入了 CoT 和 Self-Consistency 等新的单源依赖，需后续阅读原论文消除。</p>
+</div>
+
+<!-- ==================== 行动建议 ==================== -->
+<h2>🎯 下一步行动建议</h2>
+<div class="card">
+  <ol>
+    <li>📖 <strong>最高优先级</strong>：分析 <strong>Chain-of-Thought 原论文</strong>（Wei et al. 2022），一次性消除 2 个基础盲区 + 1 个单源依赖</li>
+    <li>📖 <strong>高优先级</strong>：分析 <strong>Reflexion</strong>（Shinn et al. 2023），扩展 ReAct 体系并交叉验证 Memory + Planning</li>
+    <li>📖 <strong>高优先级</strong>：分析 <strong>Tree of Thoughts</strong>（Yao et al. 2023），与 ReAct、CoT 形成推理范式三角验证</li>
+    <li>🔬 <strong>运行 /knowledge-build</strong>：每新增 1-2 篇论文后运行，追踪盲区消除进度</li>
+  </ol>
+</div>
+
+<footer>
+  ScholarMind 知识诊断 #3 · 2026-05-06 · 115 节点 / 140 边 · 5 篇论文 · 56 个盲区 (5 真基础盲区)
+</footer>
+
+</div>
+</body>
+</html>

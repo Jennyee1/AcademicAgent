@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScholarMind Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #f5f7fb;
+            --surface: #ffffff;
+            --surface2: #f0f4f8;
+            --accent: #2563eb;
+            --accent2: #0891b2;
+            --text: #1e293b;
+            --text-dim: #64748b;
+            --danger: #dc2626;
+            --warn: #d97706;
+            --success: #059669;
+            --border: #e2e8f0;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+        h1 { text-align: center; font-size: 2em; color: var(--accent); margin-bottom: 4px; }
+        .subtitle { text-align: center; color: var(--text-dim); margin-bottom: 2rem; font-size: 0.9em; }
+
+        /* Stat Cards */
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: var(--surface); padding: 1.5rem; border-radius: 12px; text-align: center; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-2px); border-color: var(--accent); }
+        .stat-card .value { font-size: 2.2em; font-weight: 700; }
+        .stat-card .label { font-size: 0.85em; color: var(--text-dim); margin-top: 4px; }
+        .c1 .value { color: var(--accent); }
+        .c2 .value { color: var(--accent2); }
+        .c3 .value { color: var(--warn); }
+        .c4 .value { color: var(--success); }
+        .c5 .value { color: #7c3aed; }
+
+        /* Charts */
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-bottom: 2rem; }
+        .chart-box { background: var(--surface); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+        .chart-box h3 { color: var(--accent); margin-bottom: 0.8rem; font-size: 1em; }
+        canvas { max-height: 260px; }
+
+        /* Sections */
+        section { background: var(--surface); padding: 1.5rem 2rem; border-radius: 12px; margin-bottom: 1.2rem; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
+        section h2 { color: var(--accent); margin-bottom: 1rem; font-size: 1.2em; }
+        section .section-desc { text-align: left; margin-bottom: 0.8rem; color: var(--text-dim); font-size: 0.9rem; }
+
+        /* Table */
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 0.6rem 0.8rem; border-bottom: 2px solid var(--border); color: var(--text-dim); font-size: 0.85em; font-weight: 600; }
+        td { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9em; }
+        tr:hover { background: var(--surface2); }
+        a { color: var(--accent); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        .tag { display: inline-block; background: #dbeafe; color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 0.8em; margin: 2px; }
+        .empty { color: var(--text-dim); text-align: center; padding: 1.5rem; }
+
+        /* CTA Button */
+        .cta-link { display: inline-block; background: linear-gradient(135deg, #2563eb, #0891b2); color: white; padding: 0.8rem 2rem; border-radius: 8px; font-weight: 600; text-decoration: none; transition: opacity 0.2s; }
+        .cta-link:hover { opacity: 0.85; text-decoration: none; }
+
+        footer { text-align: center; color: var(--text-dim); font-size: 0.8em; margin-top: 2rem; }
+
+        @media (max-width: 768px) {
+            .charts { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: repeat(2, 1fr); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🧠 ScholarMind Dashboard</h1>
+    <p class="subtitle">知识图谱 · 研究报告 · 学习路径 — 三维一体研究仪表盘</p>
+
+    <!-- 统计卡片 -->
+    <div class="stats">
+        <div class="stat-card c1"><div class="value">115</div><div class="label">图谱节点</div></div>
+        <div class="stat-card c2"><div class="value">140</div><div class="label">图谱关系</div></div>
+        <div class="stat-card c3"><div class="value">5</div><div class="label">研究报告</div></div>
+        <div class="stat-card c4"><div class="value">3</div><div class="label">知识诊断</div></div>
+        <div class="stat-card c5"><div class="value">0</div><div class="label">追踪论文</div></div>
+    </div>
+
+    <!-- 图表 -->
+    <div class="charts">
+        <div class="chart-box">
+            <h3>📈 知识图谱增长 (created_at 双时态)</h3>
+            <canvas id="growthChart"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>🔄 盲区消除进度</h3>
+            <canvas id="gapChart"></canvas>
+        </div>
+    </div>
+
+    <!-- 知识图谱入口 -->
+    <section style="text-align:center;">
+        <h2>🕸️ 知识图谱交互可视化</h2>
+        <p style="margin-bottom:1rem;color:var(--text-dim);">115 个节点 · 140 条关系 · pyvis 力导向图</p>
+        <a class="cta-link" href="kg_visualization.html">🔗 打开交互式知识图谱</a>
+    </section>
+
+    <!-- 研究报告列表 -->
+    <section>
+        <h2>📄 研究报告</h2>
+        <p class="section-desc">每篇分析过的论文会生成一份结构化的研究报告，点击标题可查看详情。</p>
+        <table>
+            <thead><tr><th>日期</th><th>论文标题</th><th>年份</th><th>标签</th></tr></thead>
+            <tbody>
+              <tr><td>2026-05-06</td><td><a href='reports/papers/2026-05-06_Attention_Is_All_You_Need.html'>Attention Is All You Need</a></td><td>2017</td><td><span class='tag'>transformer</span> <span class='tag'>attention</span> <span class='tag'>self-attention</span></td></tr>
+              <tr><td>2026-05-06</td><td><a href='reports/papers/2026-05-06_LLM_Agent_Survey.html'>A Survey on LLM based Autonomous Agents</a></td><td>2023</td><td><span class='tag'>agent</span> <span class='tag'>LLM</span> <span class='tag'>survey</span> <span class='tag'>planning</span> <span class='tag'>memory</span></td></tr>
+              <tr><td>2026-05-06</td><td><a href='reports/papers/2026-05-06_MemGPT.html'>MemGPT: Towards LLMs as Operating Systems</a></td><td>2023</td><td><span class='tag'>agent</span> <span class='tag'>memory</span> <span class='tag'>virtual-memory</span> <span class='tag'>OS-analogy</span></td></tr>
+              <tr><td>2026-05-06</td><td><a href='reports/papers/2026-05-06_Generative_Agents.html'>Generative Agents: Interactive Simulacra of Human Behavior</a></td><td>2023</td><td><span class='tag'>agent</span> <span class='tag'>social-simulation</span> <span class='tag'>memory-stream</span> <span class='tag'>reflection</span></td></tr>
+              <tr><td>2026-05-06</td><td><a href='reports/papers/2026-05-06_ReAct.html'>ReAct: Synergizing Reasoning and Acting in Language Models</a></td><td>2022</td><td><span class='tag'>agent</span> <span class='tag'>reasoning</span> <span class='tag'>acting</span> <span class='tag'>prompting</span> <span class='tag'>few-shot</span></td></tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- 知识诊断报告 -->
+    <section>
+        <h2>🔬 知识诊断报告</h2>
+        <p class="section-desc">综合分析知识盲区和学习路径建议。每次运行 /knowledge-build 后新增一份报告，可对比历史变化。</p>
+        <table>
+            <thead><tr><th>日期</th><th>报告摘要</th><th>盲区</th><th>图谱规模</th><th>操作</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>05-06</td>
+                <td>初始诊断：Transformer 单篇论文基线，17 盲区全部为孤立/单源</td>
+                <td>17</td>
+                <td>30 / 35</td>
+                <td><a href="reports/learning_paths/2026-05-06_knowledge_diagnosis.html">📊 #1</a></td>
+              </tr>
+              <tr>
+                <td>05-06</td>
+                <td>四论文全连通，Memory 体系多源覆盖达成，Transformer 单源待解</td>
+                <td>44 (真3)</td>
+                <td>95 / 118</td>
+                <td><a href="reports/learning_paths/2026-05-06_knowledge_diagnosis_2.html">📊 #2</a></td>
+              </tr>
+              <tr>
+                <td>05-06</td>
+                <td>ReAct 入图后推理-行动体系补全，Planning/Memory 多源交叉验证达成</td>
+                <td>56 (真5)</td>
+                <td>115 / 140</td>
+                <td><a href="reports/learning_paths/2026-05-06_knowledge_diagnosis_3.html">📊 #3</a></td>
+              </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- 论文追踪 -->
+    <section>
+        <h2>📰 最近论文追踪</h2>
+        <p class="section-desc">运行 /paper-watch 自动追踪最新论文</p>
+        <table><thead><tr><th>日期</th><th>标题</th><th>作者</th></tr></thead>
+        <tbody>
+          <tr><td colspan='3' style='text-align:center;color:var(--text-dim);padding:1.5rem;'>暂无追踪记录。运行 /paper-watch 添加</td></tr>
+        </tbody></table>
+    </section>
+
+    <footer>
+        <p>ScholarMind Dashboard · 生成于 2026-05-06 · Powered by Chart.js + pyvis</p>
+    </footer>
+</div>
+
+<script>
+// 图谱增长折线图
+const growthCtx = document.getElementById('growthChart').getContext('2d');
+new Chart(growthCtx, {
+    type: 'line',
+    data: {
+        labels: ["Transformer", "Agent Survey", "MemGPT", "Gen. Agents"],
+        datasets: [{
+            label: '累计节点数',
+            data: [30, 59, 78, 95],
+            borderColor: '#2563eb',
+            backgroundColor: '#2563eb22',
+            fill: true,
+            tension: 0.3,
+        }, {
+            label: '日新增',
+            data: [30, 29, 19, 17],
+            borderColor: '#059669',
+            backgroundColor: '#05966944',
+            type: 'bar',
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#64748b' } } },
+        scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
+            y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } }
+        }
+    }
+});
+
+// 盲区消除进度
+const gapCtx = document.getElementById('gapChart').getContext('2d');
+new Chart(gapCtx, {
+    type: 'line',
+    data: {
+        labels: ["2026-05-06"],
+        datasets: [{
+            label: '总盲区数',
+            data: [17],
+            borderColor: '#d97706',
+            backgroundColor: '#d9770622',
+            fill: true,
+            tension: 0.3,
+        }, {
+            label: '严重盲区',
+            data: [2],
+            borderColor: '#dc2626',
+            backgroundColor: '#dc262622',
+            fill: true,
+            tension: 0.3,
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: { legend: { labels: { color: '#64748b' } } },
+        scales: {
+            x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
+            y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' }, beginAtZero: true }
+        }
+    }
+});
+</script>
+</body>
+</html>

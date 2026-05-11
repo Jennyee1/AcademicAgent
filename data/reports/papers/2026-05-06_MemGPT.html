@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文分析 — MemGPT</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f4f8; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --text-dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .nav-back { display: inline-block; color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; }
+  .nav-back:hover { text-decoration: underline; }
+  h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h2 { color: var(--accent2); font-size: 1.3rem; margin: 2rem 0 0.8rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+  h3 { color: var(--warn); font-size: 1.05rem; margin: 1.2rem 0 0.5rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  .meta .tag { background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+  .card { background: var(--surface); border-radius: 10px; padding: 1.2rem 1.5rem; margin: 1rem 0; border-left: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.danger { border-left-color: var(--danger); }
+  .card.success { border-left-color: var(--success); }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  .formula { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 6px; font-family: 'Consolas', monospace; color: #7c3aed; margin: 0.5rem 0; font-size: 0.95rem; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+  th { background: var(--surface2); text-align: left; padding: 0.5rem 0.8rem; color: var(--accent); font-size: 0.9rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  tr:hover { background: #f8fafc; }
+  .summary-box { background: linear-gradient(135deg, #eff6ff, #f0fdfa); padding: 1.5rem; border-radius: 12px; margin: 1rem 0; border: 1px solid #bfdbfe; }
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 600px) { .arch-grid { grid-template-columns: 1fr; } }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; margin: 2px; }
+  .badge-method { background: #dbeafe; color: var(--accent); border: 1px solid #93c5fd; }
+  .badge-concept { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+  .analogy-box { background: #fefce8; border: 1px solid #fde047; border-radius: 10px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<h1>📄 MemGPT: Towards LLMs as Operating Systems</h1>
+<div class="meta">
+  <span>📅 2023</span>
+  <span>📎 arXiv: 2310.08560</span>
+  <br>
+  <span>👤 Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G. Patil, Ion Stoica, Joseph E. Gonzalez</span>
+  <br>
+  <span class="tag">agent</span>
+  <span class="tag">memory</span>
+  <span class="tag">virtual-memory</span>
+  <span class="tag">long-context</span>
+  <span class="tag">OS-analogy</span>
+</div>
+
+<div class="summary-box">
+  <strong style="color:var(--accent)">一句话总结：</strong>
+  提出 MemGPT —— 受操作系统虚拟内存启发的 LLM Agent 系统，通过分层存储（Main Context + External Context）和自主内存管理函数，让有限上下文窗口的 LLM 获得"无限记忆"的幻觉。
+</div>
+
+<!-- ==================== Core Analogy ==================== -->
+<h2>💡 核心洞察：Memory-as-OS 类比</h2>
+<div class="analogy-box">
+  <table>
+    <tr><th>操作系统 (OS)</th><th>MemGPT</th><th>说明</th></tr>
+    <tr><td><strong>RAM（物理内存）</strong></td><td>Main Context（LLM prompt）</td><td>快速访问但容量有限</td></tr>
+    <tr><td><strong>Disk（磁盘）</strong></td><td>External Context（外部数据库）</td><td>容量无限但需要检索</td></tr>
+    <tr><td><strong>Virtual Memory（虚拟内存）</strong></td><td>Virtual Context Management</td><td>自动在两层间调度数据</td></tr>
+    <tr><td><strong>OS Memory Manager</strong></td><td>MemGPT 控制流</td><td>自主决定 paging/eviction</td></tr>
+    <tr><td><strong>Page Fault</strong></td><td>需要的信息不在 main context 中</td><td>触发 archival_memory_search</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 核心贡献 ==================== -->
+<h2>🏆 核心贡献</h2>
+<div class="card success">
+<ol>
+  <li><strong>Virtual Context Management</strong> — 虚拟上下文管理，让有限 context window 的 LLM 获得"无限记忆"</li>
+  <li><strong>分层存储架构</strong> — Main Context (system + working context + FIFO queue) + External Context (recall + archival)</li>
+  <li><strong>Self-directed Memory</strong> — Agent 自主决定何时读写记忆，无需人工干预</li>
+  <li><strong>Inner Thoughts</strong> — 私有推理链条，决定下一步记忆操作</li>
+  <li><strong>两个应用验证</strong> — 多会话对话 + 超长文档 QA，均显著超越固定上下文基线</li>
+</ol>
+</div>
+
+<!-- ==================== 架构深度解析 ==================== -->
+<h2>🏗️ MemGPT 架构解析</h2>
+
+<h3>Main Context（= LLM 的 prompt tokens）</h3>
+<div class="card">
+  <table>
+    <tr><th>组件</th><th>类型</th><th>说明</th></tr>
+    <tr><td><strong>System Instructions</strong></td><td>只读</td><td>MemGPT 控制流描述、函数 schema、角色设定</td></tr>
+    <tr><td><strong>Working Context</strong></td><td>读写</td><td>Agent 的"便签本"。存储关键事实 (如用户偏好、当前任务状态)</td></tr>
+    <tr><td><strong>FIFO Message Queue</strong></td><td>FIFO</td><td>最近对话消息。满时自动将最旧消息 evict 到 recall storage</td></tr>
+    <tr><td><strong>Function Results</strong></td><td>临时</td><td>最近一次函数调用的返回结果</td></tr>
+  </table>
+</div>
+
+<h3>External Context（= 外部存储）</h3>
+<div class="arch-grid">
+  <div class="card" style="border-left-color:#059669">
+    <h3>📝 Recall Storage</h3>
+    <p><strong>内容</strong>：完整对话历史（从 FIFO 队列 evict 出的消息）</p>
+    <p><strong>访问</strong>：按日期/关键词搜索</p>
+    <p><strong>用途</strong>：恢复过去的对话上下文</p>
+    <p style="color:var(--text-dim)">类比：OS 的 swap space</p>
+  </div>
+  <div class="card" style="border-left-color:#7c3aed">
+    <h3>🗄️ Archival Storage</h3>
+    <p><strong>内容</strong>：任意持久数据（文档、长期知识）</p>
+    <p><strong>访问</strong>：embedding-based retrieval (insert/search)</p>
+    <p><strong>用途</strong>：超大文档 QA、跨会话知识</p>
+    <p style="color:var(--text-dim)">类比：OS 的 disk/filesystem</p>
+  </div>
+</div>
+
+<h3>控制流：Self-directed Memory Management</h3>
+<div class="card warn">
+  <p>MemGPT 的核心创新：<strong>Agent 自己决定</strong>何时执行内存操作。具体流程：</p>
+  <ol style="margin-top:0.5rem">
+    <li>收到用户消息 → 追加到 FIFO 队列</li>
+    <li>LLM 生成 <strong>inner thoughts</strong>（私有推理，用户不可见）</li>
+    <li>基于推理决定执行函数：<code>core_memory_append</code>, <code>archival_memory_search</code>, <code>send_message</code> 等</li>
+    <li>函数结果写回 main context → 循环，直到 Agent 选择 <code>send_message</code></li>
+    <li>当 FIFO 队列接近上限 → 自动 evict 最旧消息到 recall storage</li>
+  </ol>
+</div>
+
+<h3>关键函数列表</h3>
+<table>
+  <tr><th>函数</th><th>作用</th><th>类比</th></tr>
+  <tr><td><code>core_memory_append</code></td><td>向 working context 追加信息</td><td>写入 RAM 缓存</td></tr>
+  <tr><td><code>core_memory_replace</code></td><td>更新 working context 中的信息</td><td>修改 RAM 缓存</td></tr>
+  <tr><td><code>recall_memory_search</code></td><td>搜索对话历史</td><td>从 swap 读取</td></tr>
+  <tr><td><code>archival_memory_insert</code></td><td>向归档存储写入数据</td><td>写入磁盘</td></tr>
+  <tr><td><code>archival_memory_search</code></td><td>从归档存储检索数据</td><td>磁盘读取</td></tr>
+  <tr><td><code>send_message</code></td><td>向用户发送回复</td><td>I/O 输出</td></tr>
+</table>
+
+<!-- ==================== 实验 ==================== -->
+<h2>📊 实验结果</h2>
+<table>
+  <tr><th>任务</th><th>基线</th><th>MemGPT</th><th>提升</th></tr>
+  <tr><td><strong>多会话对话</strong><br>(MSC dataset)</td><td>固定 context LLM<br>丢失历史信息</td><td>通过 recall/archival 保持<br>跨会话记忆</td><td style="color:var(--success)"><strong>显著提升</strong><br>知识保留率</td></tr>
+  <tr><td><strong>文档 QA</strong><br>(超长文档)</td><td>截断 context<br>或 RAG 一次检索</td><td>自主迭代检索<br>archival storage</td><td style="color:var(--success)"><strong>显著提升</strong><br>回答准确率</td></tr>
+</table>
+
+<!-- ==================== 优势与局限 ==================== -->
+<h2>💪 优势</h2>
+<div class="card success">
+<ul>
+  <li>OS 类比直觉强大：将 LLM 记忆管理映射为虚拟内存，让复杂系统设计变得可理解</li>
+  <li>Self-directed：Agent 自主管理记忆，无需人工决定何时 evict 或 retrieve</li>
+  <li>Inner Thoughts 机制：私有推理链条让 Agent 行为更可解释</li>
+  <li>实用性强：MemGPT 已开源，后续发展为 Letta 框架，被广泛使用</li>
+</ul>
+</div>
+
+<h2>⚠️ 局限性</h2>
+<div class="card danger">
+<ul>
+  <li>多轮函数调用增加延迟和 token 消耗（每次内存操作 = 一次 LLM 调用）</li>
+  <li>Eviction 策略（FIFO）较简单，可能丢失重要但较早的消息</li>
+  <li>Archival storage 检索质量依赖 embedding 模型，可能有 recall 盲区</li>
+  <li>实验仅在 GPT-4 和 GPT-3.5 上测试，缺少开源模型的评估</li>
+</ul>
+</div>
+
+<!-- ==================== 与其他论文的连接 ==================== -->
+<h2>🔗 与其他论文的关联</h2>
+<div class="card">
+  <table>
+    <tr><th>连接到</th><th>关系</th><th>说明</th></tr>
+    <tr><td><strong>Transformer</strong></td><td>uses</td><td>MemGPT 使用 Transformer-based LLM 作为处理器</td></tr>
+    <tr><td><strong>Memory Module</strong> (Agent Survey)</td><td>improves</td><td>MemGPT 是 Memory Module 概念的具体 OS 级实现</td></tr>
+    <tr><td><strong>Short-term Memory</strong></td><td>related</td><td>Main Context = Short-term Memory 的实现</td></tr>
+    <tr><td><strong>Long-term Memory</strong></td><td>related</td><td>External Context = Long-term Memory 的实现</td></tr>
+    <tr><td><strong>Memory Retrieval</strong></td><td>related</td><td>Archival Storage Search = Memory Retrieval 的具体化</td></tr>
+    <tr><td><strong>LLM-based Agent Architecture</strong></td><td>instance</td><td>MemGPT 是 Agent 架构的一个聚焦 Memory 的实例</td></tr>
+  </table>
+</div>
+
+<h2>🕸️ 知识图谱录入</h2>
+<table>
+  <tr><th>类型</th><th>新增</th><th>示例</th></tr>
+  <tr><td><span class="badge badge-method">Method</span></td><td>3</td><td>MemGPT, Virtual Context Management, Self-directed Memory Management</td></tr>
+  <tr><td><span class="badge badge-concept">Concept</span></td><td>8</td><td>Main/External Context, FIFO Queue, Recall/Archival Storage, Inner Thoughts, Memory-as-OS Analogy</td></tr>
+  <tr><td>Dataset</td><td>2</td><td>Multi-Session Chat, MemGPT Document QA</td></tr>
+  <tr><td>Author</td><td>5</td><td>Packer, Wooders, Stoica, Gonzalez...</td></tr>
+  <tr><td>跨论文连接</td><td>6</td><td>→ Transformer, → Memory Module, → Short/Long-term Memory, → LLM Agent Architecture</td></tr>
+</table>
+<p style="margin-top:0.5rem;color:var(--text-dim)">图谱增长: 59→78 节点, 69→93 关系 | <a href="../../kg_visualization.html" style="color:var(--accent)">查看交互式图谱</a></p>
+
+<footer>
+  ScholarMind — 自动生成于 2026-05-06 | 论文 PDF: data/papers/MemGPT.pdf
+</footer>
+
+</div>
+</body>
+</html>

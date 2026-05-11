@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文分析 — LLM Agent Survey</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f4f8; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --text-dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .nav-back { display: inline-block; color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; }
+  .nav-back:hover { text-decoration: underline; }
+  h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h2 { color: var(--accent2); font-size: 1.3rem; margin: 2rem 0 0.8rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+  h3 { color: var(--warn); font-size: 1.05rem; margin: 1.2rem 0 0.5rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  .meta .tag { background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+  .card { background: var(--surface); border-radius: 10px; padding: 1.2rem 1.5rem; margin: 1rem 0; border-left: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.danger { border-left-color: var(--danger); }
+  .card.success { border-left-color: var(--success); }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+  th { background: var(--surface2); text-align: left; padding: 0.5rem 0.8rem; color: var(--accent); font-size: 0.9rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  tr:hover { background: #f8fafc; }
+  .summary-box { background: linear-gradient(135deg, #eff6ff, #f0fdfa); padding: 1.5rem; border-radius: 12px; margin: 1rem 0; border: 1px solid #bfdbfe; }
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 600px) { .arch-grid { grid-template-columns: 1fr; } }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; margin: 2px; }
+  .badge-method { background: #dbeafe; color: var(--accent); border: 1px solid #93c5fd; }
+  .badge-concept { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<h1>📄 A Survey on Large Language Model based Autonomous Agents</h1>
+<div class="meta">
+  <span>📅 2023</span>
+  <span>🏛️ Frontiers of Computer Science 2024</span>
+  <span>📎 arXiv: 2308.11432</span>
+  <br>
+  <span>👤 Lei Wang, Chen Ma, Xueyang Feng, Xu Chen, Yankai Lin, Wayne Xin Zhao 等</span>
+  <br>
+  <span class="tag">agent</span>
+  <span class="tag">LLM</span>
+  <span class="tag">survey</span>
+  <span class="tag">planning</span>
+  <span class="tag">memory</span>
+  <span class="tag">multi-agent</span>
+</div>
+
+<div class="summary-box">
+  <strong style="color:var(--accent)">一句话总结：</strong>
+  系统性综述 LLM-based 自主 Agent 的<strong>构建（Architecture）</strong>、<strong>应用（Application）</strong>和<strong>评估（Evaluation）</strong>三大维度，提出 Profile + Memory + Planning + Action 四模块统一架构框架。
+</div>
+
+<!-- ==================== 核心贡献 ==================== -->
+<h2>🏆 核心贡献</h2>
+<div class="card success">
+<ol>
+  <li><strong>统一架构框架</strong> — 提出 Profile + Memory + Planning + Action 四模块 Agent 架构分类法</li>
+  <li><strong>能力获取分类</strong> — 将 Agent 能力获取归纳为 Prompt Engineering / Fine-tuning / Mechanism Engineering</li>
+  <li><strong>应用全景图</strong> — 覆盖社会科学（社交仿真）、自然科学、工程（代码生成）三大领域</li>
+  <li><strong>评估体系</strong> — 主观 / 客观 / Benchmark 三层评估框架</li>
+  <li><strong>42 页综述</strong> — 引用 200+ 篇论文，涵盖 2023 年 Agent 研究全貌</li>
+</ol>
+</div>
+
+<!-- ==================== Agent 架构深度解析 ==================== -->
+<h2>🏗️ Agent 架构设计（重点）</h2>
+
+<p>论文提出了一个统一的 LLM-based Agent 架构框架，以 LLM 为核心控制器，周围环绕四个功能模块：</p>
+
+<div class="arch-grid">
+  <div class="card" style="border-left-color:#7c3aed">
+    <h3>👤 Profiling Module</h3>
+    <p><strong>功能</strong>：定义 Agent 角色/人设，写入 prompt 影响 LLM 行为</p>
+    <p style="margin-top:0.5rem"><strong>三种构建方式</strong>：</p>
+    <ul>
+      <li><strong>Handcrafting</strong> — 手动设定角色描述</li>
+      <li><strong>LLM-Generation</strong> — 让 LLM 自动生成角色</li>
+      <li><strong>Dataset Alignment</strong> — 用真实数据对齐人设</li>
+    </ul>
+    <p style="margin-top:0.5rem;color:var(--text-dim)">Profile 包含：年龄/性别/职业 + 心理特征 + 社会关系信息</p>
+  </div>
+  <div class="card" style="border-left-color:#059669">
+    <h3>🧠 Memory Module</h3>
+    <p><strong>功能</strong>：存储环境感知信息，辅助未来决策</p>
+    <p style="margin-top:0.5rem"><strong>双层结构</strong>：</p>
+    <ul>
+      <li><strong>Short-term</strong> — LLM 上下文窗口（受限于 context length）</li>
+      <li><strong>Long-term</strong> — 外部向量数据库（持久存储，via 检索访问）</li>
+    </ul>
+    <p style="margin-top:0.5rem"><strong>三种操作</strong>：Read（检索）/ Write（写入）/ Reflect（总结压缩）</p>
+    <p style="color:var(--text-dim)">典型实现：Generative Agents 的 Memory Stream + Retrieval (recency × relevance × importance)</p>
+  </div>
+  <div class="card" style="border-left-color:#d97706">
+    <h3>📋 Planning Module</h3>
+    <p><strong>功能</strong>：将复杂任务分解为可执行子任务</p>
+    <p style="margin-top:0.5rem"><strong>两种范式</strong>：</p>
+    <table style="margin-top:0.5rem">
+      <tr><th>无反馈</th><th>有反馈</th></tr>
+      <tr>
+        <td>
+          <strong>CoT</strong> — 逐步推理<br>
+          <strong>ToT</strong> — 树状探索 + 回溯<br>
+          <strong>GoT</strong> — 图结构推理<br>
+          <strong>LLM+P</strong> — PDDL + 经典规划器
+        </td>
+        <td>
+          <strong>ReAct</strong> — 思考-行动-观察循环<br>
+          <strong>Reflexion</strong> — 失败反思改进<br>
+          <strong>Inner Monologue</strong> — 内部独白<br>
+          <strong>Multi-Agent Debate</strong> — 多Agent讨论
+        </td>
+      </tr>
+    </table>
+    <p style="margin-top:0.5rem;color:var(--text-dim)">关键洞察：有反馈的规划能力显著强于无反馈，但成本更高（多轮 LLM 调用）</p>
+  </div>
+  <div class="card" style="border-left-color:#dc2626">
+    <h3>⚡ Action Module</h3>
+    <p><strong>功能</strong>：将决策转化为具体行动，直接与环境交互</p>
+    <p style="margin-top:0.5rem"><strong>三个维度</strong>：</p>
+    <ul>
+      <li><strong>Action Goal</strong> — 任务完成 / 沟通协作 / 环境探索</li>
+      <li><strong>Action Production</strong> — 记忆回调 / 计划跟随 / 混合</li>
+      <li><strong>Action Space</strong> — 外部工具 / LLM 内部知识 / 人类交互</li>
+    </ul>
+    <p style="margin-top:0.5rem;color:var(--text-dim)">工具使用是 Action Module 的核心扩展能力（API调用、代码执行等）</p>
+  </div>
+</div>
+
+<!-- ==================== 能力获取 ==================== -->
+<h2>📚 Agent 能力获取策略</h2>
+<table>
+  <tr><th>策略</th><th>方法</th><th>优势</th><th>局限</th></tr>
+  <tr><td><strong>Prompt Engineering</strong></td><td>Zero-shot / Few-shot / Role prompt</td><td>零训练成本，灵活切换</td><td>受限于 LLM 基础能力</td></tr>
+  <tr><td><strong>Agent Fine-tuning</strong></td><td>在 Agent 轨迹数据上微调 LLM</td><td>内化 Agent 行为模式</td><td>需要大量标注轨迹</td></tr>
+  <tr><td><strong>Mechanism Engineering</strong></td><td>Trial-and-error / 经验积累 / 众包</td><td>持续自我进化</td><td>收敛速度不确定</td></tr>
+</table>
+
+<!-- ==================== 应用领域 ==================== -->
+<h2>🌍 应用领域全景</h2>
+<div class="arch-grid">
+  <div class="card">
+    <h3>社会科学</h3>
+    <ul>
+      <li><strong>社交仿真</strong> — Generative Agents, Social Simulacra</li>
+      <li><strong>心理学实验</strong> — Agent 模拟人类行为</li>
+      <li><strong>经济学模拟</strong> — 市场 Agent 博弈</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>工程</h3>
+    <ul>
+      <li><strong>软件开发</strong> — ChatDev, MetaGPT</li>
+      <li><strong>网页浏览</strong> — WebAgent, Mind2Web</li>
+      <li><strong>机器人控制</strong> — SayCan, VoxPoser</li>
+    </ul>
+  </div>
+</div>
+<div class="card">
+  <h3>自然科学</h3>
+  <ul>
+    <li><strong>科学发现</strong> — ChemCrow (化学), 药物发现</li>
+    <li><strong>实验设计</strong> — Agent 自动生成和执行实验方案</li>
+  </ul>
+</div>
+
+<!-- ==================== 评估体系 ==================== -->
+<h2>📊 评估体系</h2>
+<table>
+  <tr><th>层级</th><th>方法</th><th>说明</th></tr>
+  <tr><td><strong>主观评估</strong></td><td>人类标注</td><td>捕捉细微偏好，但成本高、不可复现</td></tr>
+  <tr><td><strong>客观评估</strong></td><td>Success Rate / Reward / F1</td><td>自动化可复现，但可能遗漏细节</td></tr>
+  <tr><td><strong>Benchmark</strong></td><td>ALFWorld / WebShop / AgentBench / MINT</td><td>标准化环境，跨模型可比</td></tr>
+</table>
+
+<!-- ==================== 优势与局限 ==================== -->
+<h2>💪 综述的价值</h2>
+<div class="card success">
+<ul>
+  <li>四模块架构框架（Profile + Memory + Planning + Action）成为后续研究的标准分析框架</li>
+  <li>覆盖面极广：42 页 / 200+ 引用，是 2023 年 Agent 领域最全面的综述之一</li>
+  <li>分类法清晰：每个模块都有二级分类（如 Planning = 有反馈 vs 无反馈）</li>
+  <li>跨领域视角：同时覆盖社科/自然科学/工程三大应用方向</li>
+</ul>
+</div>
+
+<h2>⚠️ 局限性</h2>
+<div class="card danger">
+<ul>
+  <li>综述截止 2023 年中，缺少后续重要工作（如 OpenAI Function Calling、Claude Tool Use、GPT-4V Agent）</li>
+  <li>对 multi-agent 协作的分析较浅，缺少对通信/协调协议的深入讨论</li>
+  <li>缺少对 Agent 安全性和对齐问题的系统性讨论</li>
+</ul>
+</div>
+
+<!-- ==================== 研究关联 ==================== -->
+<h2>🔗 与我的研究的关联</h2>
+<div class="card">
+  <p>这篇综述是理解 <strong>Agent 架构设计模式</strong> 的核心参考。四模块框架直接指导了 ScholarMind 的设计：</p>
+  <ul style="margin-top:0.5rem">
+    <li><strong>Profiling</strong> → ScholarMind 的 USER.md (研究方向/偏好)</li>
+    <li><strong>Memory</strong> → ScholarMind 的 MEMORY.md + Knowledge Graph</li>
+    <li><strong>Planning</strong> → Workflow 系统 (paper-analysis, knowledge-build)</li>
+    <li><strong>Action</strong> → MCP Tools + Paper Registry + Report Generator</li>
+  </ul>
+</div>
+
+<!-- ==================== KG Summary ==================== -->
+<h2>🕸️ 知识图谱录入</h2>
+<table>
+  <tr><th>类型</th><th>新增</th><th>示例</th></tr>
+  <tr><td><span class="badge badge-method">Method</span></td><td>12</td><td>LLM-based Agent Architecture, Profiling/Memory/Planning/Action Module, CoT, ToT, Reflexion...</td></tr>
+  <tr><td><span class="badge badge-concept">Concept</span></td><td>10</td><td>Short/Long-term Memory, Memory Retrieval/Reflection, Social Simulation, Multi-Agent Collaboration...</td></tr>
+  <tr><td>Author</td><td>6</td><td>Lei Wang, Chen Ma, Xu Chen, Yankai Lin...</td></tr>
+  <tr><td>跨论文连接</td><td>2</td><td>LLM Agent Architecture → Transformer, → Self-Attention</td></tr>
+</table>
+<p style="margin-top:0.5rem;color:var(--text-dim)">图谱增长: 30→59 节点, 35→69 关系 | <a href="../../kg_visualization.html" style="color:var(--accent)">查看交互式图谱</a></p>
+
+<footer>
+  ScholarMind — 自动生成于 2026-05-06 | 论文 PDF: data/papers/LLM_Agent_Survey.pdf
+</footer>
+
+</div>
+</body>
+</html>

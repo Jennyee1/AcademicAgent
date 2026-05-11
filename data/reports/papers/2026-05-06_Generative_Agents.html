@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文分析 — Generative Agents</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f4f8; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --text-dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .nav-back { display: inline-block; color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; }
+  .nav-back:hover { text-decoration: underline; }
+  h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h2 { color: var(--accent2); font-size: 1.3rem; margin: 2rem 0 0.8rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+  h3 { color: var(--warn); font-size: 1.05rem; margin: 1.2rem 0 0.5rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  .meta .tag { background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+  .card { background: var(--surface); border-radius: 10px; padding: 1.2rem 1.5rem; margin: 1rem 0; border-left: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.danger { border-left-color: var(--danger); }
+  .card.success { border-left-color: var(--success); }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  .formula { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 6px; font-family: 'Consolas', monospace; color: #7c3aed; margin: 0.5rem 0; font-size: 0.95rem; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+  th { background: var(--surface2); text-align: left; padding: 0.5rem 0.8rem; color: var(--accent); font-size: 0.9rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  tr:hover { background: #f8fafc; }
+  .summary-box { background: linear-gradient(135deg, #eff6ff, #f0fdfa); padding: 1.5rem; border-radius: 12px; margin: 1rem 0; border: 1px solid #bfdbfe; }
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 600px) { .arch-grid { grid-template-columns: 1fr; } }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; margin: 2px; }
+  .badge-method { background: #dbeafe; color: var(--accent); border: 1px solid #93c5fd; }
+  .badge-concept { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+  .flow-box { background: #fefce8; border: 1px solid #fde047; border-radius: 10px; padding: 1rem 1.2rem; margin: 1rem 0; text-align: center; font-family: 'Consolas', monospace; font-size: 0.9rem; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<h1>📄 Generative Agents: Interactive Simulacra of Human Behavior</h1>
+<div class="meta">
+  <span>📅 2023</span>
+  <span>🏛️ UIST 2023</span>
+  <span>📎 arXiv: 2304.03442</span>
+  <br>
+  <span>👤 Joon Sung Park, Joseph C. O'Brien, Carrie J. Cai, Meredith Ringel Morris, Percy Liang, Michael S. Bernstein</span>
+  <br>
+  <span class="tag">agent</span>
+  <span class="tag">social-simulation</span>
+  <span class="tag">memory-stream</span>
+  <span class="tag">reflection</span>
+  <span class="tag">believability</span>
+  <span class="tag">multi-agent</span>
+</div>
+
+<div class="summary-box">
+  <strong style="color:var(--accent)">一句话总结：</strong>
+  提出 Generative Agents —— 在 Smallville 沙盒中模拟 25 个"可信人类行为"的 AI 代理。核心架构：<strong>Memory Stream（记忆流）+ Retrieval（检索）+ Reflection（反思）+ Planning（规划）</strong>。展现了信息扩散、关系形成、派对协调等涌现社会行为。
+</div>
+
+<!-- ==================== 核心贡献 ==================== -->
+<h2>🏆 核心贡献</h2>
+<div class="card success">
+<ol>
+  <li><strong>Generative Agents 概念</strong> — 首次实现 25 个 LLM-driven Agent 在沙盒中长期自主生活</li>
+  <li><strong>Memory Stream</strong> — 自然语言记录所有经历的长期记忆机制</li>
+  <li><strong>三因子检索</strong> — recency × relevance × importance 加权检索</li>
+  <li><strong>Reflection 机制</strong> — 从原始记忆中提炼高层次洞察</li>
+  <li><strong>涌现社会行为</strong> — 信息扩散、关系建立、群体协调等复杂行为自然涌现</li>
+</ol>
+</div>
+
+<!-- ==================== 架构 ==================== -->
+<h2>🏗️ Agent 架构</h2>
+
+<div class="flow-box">
+  观察环境 → <strong>Memory Stream</strong> 记录 → <strong>Retrieval</strong> 检索相关记忆 → <strong>Reflection</strong> 提炼洞察 → <strong>Planning</strong> 生成计划 → <strong>Reacting</strong> 执行/交互
+</div>
+
+<h3>📝 Memory Stream（记忆流）</h3>
+<div class="card" style="border-left-color:#059669">
+  <p><strong>核心数据结构</strong>：所有 Agent 经历的自然语言记录列表（观察、对话、反思）</p>
+  <ul style="margin-top:0.5rem">
+    <li>每条记录包含：<strong>描述</strong> + <strong>时间戳</strong> + <strong>重要性评分</strong>（LLM 给出 1-10）</li>
+    <li>记录是只追加的（append-only），永不删除</li>
+    <li>既存储原始观察，也存储 Reflection 产生的高层洞察</li>
+  </ul>
+  <p style="margin-top:0.5rem;color:var(--text-dim)">示例："Klaus Mueller is reading a book on gentrification [importance: 8]"</p>
+</div>
+
+<h3>🔍 Retrieval（三因子检索）</h3>
+<div class="card" style="border-left-color:#7c3aed">
+  <div class="formula">
+    score = α · <strong>recency</strong> + β · <strong>relevance</strong> + γ · <strong>importance</strong>
+  </div>
+  <table style="margin-top:0.5rem">
+    <tr><th>因子</th><th>计算方式</th><th>直觉</th></tr>
+    <tr><td><strong>Recency</strong></td><td>指数衰减 e<sup>-λt</sup></td><td>最近发生的更重要</td></tr>
+    <tr><td><strong>Relevance</strong></td><td>Embedding cosine similarity</td><td>与当前情境语义相关的更重要</td></tr>
+    <tr><td><strong>Importance</strong></td><td>LLM 评分 1-10</td><td>"分手"比"刷牙"重要</td></tr>
+  </table>
+</div>
+
+<h3>💭 Reflection（反思）</h3>
+<div class="card warn">
+  <p><strong>触发条件</strong>：当最近记忆的 importance 总分累积超过阈值时触发</p>
+  <p><strong>过程</strong>：</p>
+  <ol style="margin-top:0.5rem">
+    <li>从记忆流中检索最近的重要记忆</li>
+    <li>让 LLM 提出"关于这些记忆，可以推断出哪些高层次洞察？"</li>
+    <li>生成 3-5 条 <strong>reflection statements</strong>（如："Klaus 对研究非常执着"）</li>
+    <li>Reflections 也存入 Memory Stream（可被后续检索和再反思）</li>
+  </ol>
+  <p style="margin-top:0.5rem;color:var(--text-dim)"><strong>关键价值</strong>：形成"记忆的记忆"树状结构，使 Agent 逐渐建立自我认知和价值观</p>
+</div>
+
+<h3>📋 Planning（规划）</h3>
+<div class="card" style="border-left-color:#d97706">
+  <p><strong>自顶向下分解</strong>：</p>
+  <ul>
+    <li><strong>日级计划</strong> — "今天要完成研究、去咖啡馆、参加晚会"</li>
+    <li><strong>小时级</strong> — 将日计划拆解为时间块</li>
+    <li><strong>5-15 分钟级</strong> — 最细粒度的可执行行动</li>
+  </ul>
+  <p style="margin-top:0.5rem"><strong>动态修正</strong>：遇到意外事件（如偶遇朋友），Agent 会根据 Retrieval 结果决定是否打断当前计划</p>
+</div>
+
+<!-- ==================== 涌现行为 ==================== -->
+<h2>🌐 涌现社会行为</h2>
+<div class="card success">
+  <p>这些行为<strong>没有被显式编程</strong>，而是从 25 个 Agent 的独立行动中自然产生：</p>
+  <ul style="margin-top:0.5rem">
+    <li>🗣️ <strong>信息扩散</strong> — 一个 Agent 提到 Valentine's Day 派对，消息在 2 天内通过社交网络传播到整个社区</li>
+    <li>💑 <strong>关系形成</strong> — Agent 根据共同兴趣自发建立新的友谊和浪漫关系</li>
+    <li>🎉 <strong>群体协调</strong> — 多个 Agent 自主协调时间、地点来参加派对</li>
+    <li>🔄 <strong>行为一致性</strong> — Agent 记住过去的承诺并在未来兑现</li>
+  </ul>
+</div>
+
+<!-- ==================== 评估 ==================== -->
+<h2>📊 评估方法</h2>
+<table>
+  <tr><th>维度</th><th>方法</th><th>结果</th></tr>
+  <tr><td><strong>Believability</strong></td><td>人类评估者评分 1-10</td><td>完整架构显著高于各 ablation 变体</td></tr>
+  <tr><td><strong>Ablation Study</strong></td><td>去掉 Retrieval / Reflection / Planning</td><td>每个组件都对 believability 有独立贡献</td></tr>
+  <tr><td><strong>社会行为</strong></td><td>定性分析信息扩散/关系/协调</td><td>展现了复杂的涌现社会动态</td></tr>
+</table>
+
+<!-- ==================== 对比 ==================== -->
+<h2>🔄 与 MemGPT 的对比</h2>
+<table>
+  <tr><th>维度</th><th>Generative Agents</th><th>MemGPT</th></tr>
+  <tr><td><strong>Memory 理念</strong></td><td>Memory Stream（自然语言流水账）</td><td>Virtual Context（OS 虚拟内存）</td></tr>
+  <tr><td><strong>检索策略</strong></td><td>recency × relevance × importance</td><td>Self-directed function calls</td></tr>
+  <tr><td><strong>Memory 压缩</strong></td><td>Reflection（语义抽象）</td><td>FIFO eviction + archival</td></tr>
+  <tr><td><strong>焦点</strong></td><td>社会仿真 / 多 Agent</td><td>单 Agent 长对话 / 文档 QA</td></tr>
+  <tr><td><strong>Agent 数量</strong></td><td>25 个并行</td><td>1 个</td></tr>
+</table>
+
+<!-- ==================== 优势与局限 ==================== -->
+<h2>💪 优势</h2>
+<div class="card success">
+<ul>
+  <li>首次大规模展示 LLM Agent 涌现社会行为的可能性</li>
+  <li>Memory Stream + Reflection 的设计优雅且有认知科学理论支撑</li>
+  <li>三因子检索（recency × relevance × importance）简单高效，被广泛借鉴</li>
+  <li>Ablation study 充分验证每个组件的价值</li>
+  <li>开源代码 + Smallville 沙盒，可复现</li>
+</ul>
+</div>
+
+<h2>⚠️ 局限性</h2>
+<div class="card danger">
+<ul>
+  <li>每个 Agent 每步都需要多次 LLM 调用，成本极高（GPT-4 × 25 agents × 连续运行）</li>
+  <li>Memory Stream 是只追加的，没有遗忘机制，长期运行后检索效率下降</li>
+  <li>Smallville 环境较简单（2D 地图），缺少更复杂的物理交互</li>
+  <li>Believability 评估依赖人类标注，难以规模化</li>
+</ul>
+</div>
+
+<!-- ==================== 研究关联 ==================== -->
+<h2>🔗 与其他论文的关联</h2>
+<div class="card">
+  <table>
+    <tr><th>连接到</th><th>关系</th><th>说明</th></tr>
+    <tr><td><strong>Transformer</strong></td><td>uses</td><td>底层使用 GPT-3.5/4 作为 LLM backbone</td></tr>
+    <tr><td><strong>Memory Module</strong></td><td>related</td><td>Memory Stream 是 Agent Survey 中 Memory Module 的标志性实现</td></tr>
+    <tr><td><strong>MemGPT</strong></td><td>related</td><td>两种不同的 Agent Memory 范式：语义流 vs OS 虚拟内存</td></tr>
+    <tr><td><strong>Social Simulation</strong></td><td>related</td><td>是 Agent Survey 中 Social Simulation 应用的开创性工作</td></tr>
+    <tr><td><strong>Planning Module</strong></td><td>related</td><td>Agent Planning = Planning Module 的层次化实现</td></tr>
+    <tr><td><strong>Memory Reflection</strong></td><td>related</td><td>Reflection Mechanism 是 Memory Reflection 概念的首个完整实现</td></tr>
+    <tr><td><strong>LLM Agent Architecture</strong></td><td>related</td><td>四模块框架的另一个经典实例</td></tr>
+  </table>
+</div>
+
+<h2>🕸️ 知识图谱录入</h2>
+<table>
+  <tr><th>类型</th><th>新增</th><th>示例</th></tr>
+  <tr><td><span class="badge badge-method">Method</span></td><td>6</td><td>Generative Agents, Memory Stream, Retrieval Function, Reflection Mechanism, Agent Planning, Agent Reacting</td></tr>
+  <tr><td><span class="badge badge-concept">Concept</span></td><td>4</td><td>Believable Behavior, Emergent Social Behavior, Smallville Sandbox, Importance Scoring</td></tr>
+  <tr><td>Metric</td><td>1</td><td>Believability Evaluation</td></tr>
+  <tr><td>Author</td><td>5</td><td>Joon Sung Park, Percy Liang, Michael Bernstein...</td></tr>
+  <tr><td>跨论文连接</td><td>8</td><td>→ Transformer, MemGPT, Memory Module, Social Simulation, Planning Module, Memory Reflection...</td></tr>
+</table>
+<p style="margin-top:0.5rem;color:var(--text-dim)">图谱: 78→95 节点, 93→118 关系 | <a href="../../kg_visualization.html" style="color:var(--accent)">查看交互式图谱</a></p>
+
+<footer>
+  ScholarMind — 自动生成于 2026-05-06 | 论文 PDF: data/papers/Generative_Agents.pdf
+</footer>
+
+</div>
+</body>
+</html>

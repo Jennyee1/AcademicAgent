@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>论文分析 — ReAct</title>
+<style>
+  :root { --bg: #f5f7fb; --surface: #ffffff; --surface2: #f0f4f8; --accent: #2563eb; --accent2: #0891b2; --text: #1e293b; --text-dim: #64748b; --danger: #dc2626; --warn: #d97706; --success: #059669; --border: #e2e8f0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--bg); color: var(--text); padding: 2rem; line-height: 1.7; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .nav-back { display: inline-block; color: var(--accent); text-decoration: none; font-size: 0.9rem; margin-bottom: 1rem; }
+  .nav-back:hover { text-decoration: underline; }
+  h1 { color: var(--accent); font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h2 { color: var(--accent2); font-size: 1.3rem; margin: 2rem 0 0.8rem; border-bottom: 2px solid var(--border); padding-bottom: 0.3rem; }
+  h3 { color: var(--warn); font-size: 1.05rem; margin: 1.2rem 0 0.5rem; }
+  .meta { color: var(--text-dim); font-size: 0.9rem; margin-bottom: 1.5rem; }
+  .meta span { margin-right: 1.5rem; }
+  .meta .tag { background: #dbeafe; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: var(--accent); }
+  .card { background: var(--surface); border-radius: 10px; padding: 1.2rem 1.5rem; margin: 1rem 0; border-left: 3px solid var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .card.warn { border-left-color: var(--warn); }
+  .card.danger { border-left-color: var(--danger); }
+  .card.success { border-left-color: var(--success); }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: 0.3rem 0; }
+  .formula { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 6px; font-family: 'Consolas', monospace; color: #7c3aed; margin: 0.5rem 0; font-size: 0.95rem; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; margin: 0.8rem 0; }
+  th { background: var(--surface2); text-align: left; padding: 0.5rem 0.8rem; color: var(--accent); font-size: 0.9rem; border-bottom: 2px solid var(--border); }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+  tr:hover { background: #f8fafc; }
+  .summary-box { background: linear-gradient(135deg, #eff6ff, #f0fdfa); padding: 1.5rem; border-radius: 12px; margin: 1rem 0; border: 1px solid #bfdbfe; }
+  .arch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 600px) { .arch-grid { grid-template-columns: 1fr; } }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; margin: 2px; }
+  .badge-method { background: #dbeafe; color: var(--accent); border: 1px solid #93c5fd; }
+  .badge-concept { background: #fee2e2; color: var(--danger); border: 1px solid #fca5a5; }
+  .badge-dataset { background: #fef3c7; color: var(--warn); border: 1px solid #fde68a; }
+  .analogy-box { background: #fefce8; border: 1px solid #fde047; border-radius: 10px; padding: 1rem 1.2rem; margin: 1rem 0; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.9rem; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-dim); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<a class="nav-back" href="../../dashboard.html">← 返回 Dashboard</a>
+
+<h1>📄 ReAct: Synergizing Reasoning and Acting in Language Models</h1>
+<div class="meta">
+  <span>📅 2022</span>
+  <span>📎 arXiv: 2210.03629</span>
+  <span>🏛️ ICLR 2023</span>
+  <br>
+  <span>👤 Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, Yuan Cao</span>
+  <br>
+  <span class="tag">agent</span>
+  <span class="tag">reasoning</span>
+  <span class="tag">acting</span>
+  <span class="tag">prompting</span>
+  <span class="tag">few-shot</span>
+  <span class="tag">grounding</span>
+</div>
+
+<div class="summary-box">
+  <strong style="color:var(--accent)">一句话总结：</strong>
+  提出 ReAct —— 一种让 LLM 交替生成推理轨迹（Thought）和任务动作（Action）的范式，将动作空间从 A 扩展为 A ∪ L（语言空间），实现"推理引导行动、行动反哺推理"的协同闭环，在知识密集型 QA 和交互式决策两大类任务上均超越纯推理（CoT）或纯行动基线。
+</div>
+
+<!-- ==================== 核心洞察 ==================== -->
+<h2>💡 核心洞察：Reasoning ↔ Acting 协同</h2>
+<div class="analogy-box">
+  <table>
+    <tr><th>方法</th><th>推理</th><th>行动</th><th>问题</th></tr>
+    <tr><td><strong>CoT</strong>（纯推理）</td><td>✅ 内部思维链</td><td>❌ 无外部交互</td><td>56% 幻觉率（HotpotQA）；黑箱推理无法验证</td></tr>
+    <tr><td><strong>Act</strong>（纯行动）</td><td>❌ 无推理</td><td>✅ 搜索/查找</td><td>无法综合信息、生成最终答案困难</td></tr>
+    <tr><td><strong>ReAct</strong>（推理+行动）</td><td>✅ Thought traces</td><td>✅ Task actions</td><td>推理错误47%（但幻觉降至0%）</td></tr>
+  </table>
+  <p style="margin-top:0.8rem;color:var(--text-dim)">人类认知类比：做菜时在动作间穿插「内心独白」— 追踪进度、处理异常、决定搜索菜谱 — 这正是 ReAct 的设计灵感来源（Vygotsky 内语理论）。</p>
+</div>
+
+<!-- ==================== 核心贡献 ==================== -->
+<h2>🏆 核心贡献</h2>
+<div class="card success">
+<ol>
+  <li><strong>Augmented Action Space</strong> — 将语言空间 L 融入动作空间：Â = A ∪ L，思维动作不影响环境但更新上下文</li>
+  <li><strong>Thought-Action-Observation 循环</strong> — 交替生成推理轨迹和任务动作，构建可解释的问题求解路径</li>
+  <li><strong>ReAct + CoT-SC 混合策略</strong> — 结合内部知识（CoT）和外部知识（ReAct），达到最优性能</li>
+  <li><strong>Few-shot 泛化</strong> — 仅需 1-6 个标注样例，即超越训练 10³-10⁵ 样例的 IL/RL 方法</li>
+  <li><strong>Human-in-the-loop 可编辑</strong> — 人类可直接编辑 Thought 来纠正 Agent 行为</li>
+</ol>
+</div>
+
+<!-- ==================== 形式化定义 ==================== -->
+<h2>🔬 形式化定义</h2>
+
+<h3>标准 Agent 框架</h3>
+<div class="formula">
+  时间步 t: 观测 oₜ ∈ O → 动作 aₜ ∈ A, 按策略 π(aₜ | cₜ)<br>
+  上下文 cₜ = (o₁, a₁, ..., oₜ₋₁, aₜ₋₁, oₜ)
+</div>
+
+<h3>ReAct 扩展</h3>
+<div class="formula">
+  扩展动作空间: Â = A ∪ L （L = 语言/思维空间）<br>
+  思维动作 âₜ ∈ L: 不影响环境（无 observation 反馈），但更新上下文 cₜ₊₁ = (cₜ, âₜ)<br>
+  <br>
+  Thought 的用途：<br>
+  · 分解目标 → 生成行动计划<br>
+  · 注入常识知识<br>
+  · 提取观测中的关键信息<br>
+  · 追踪进度 / 调整计划<br>
+  · 处理异常和错误恢复
+</div>
+
+<!-- ==================== Action Space ==================== -->
+<h2>🛠️ 动作空间设计</h2>
+
+<h3>知识密集型任务（HotpotQA / FEVER）</h3>
+<div class="card">
+  <table>
+    <tr><th>动作</th><th>功能</th><th>说明</th></tr>
+    <tr><td><code>search[entity]</code></td><td>搜索 Wikipedia</td><td>返回实体页面前5句；不存在则建议 top-5 相似实体</td></tr>
+    <tr><td><code>lookup[string]</code></td><td>页内查找</td><td>返回包含 string 的下一句，模拟 Ctrl+F</td></tr>
+    <tr><td><code>finish[answer]</code></td><td>提交答案</td><td>终止当前任务</td></tr>
+  </table>
+  <p style="margin-top:0.5rem;color:var(--text-dim)">设计意图：故意使用弱检索器（非 SOTA），迫使模型通过显式推理来引导检索。</p>
+</div>
+
+<h3>决策任务（ALFWorld / WebShop）</h3>
+<div class="card">
+  <ul>
+    <li><strong>ALFWorld</strong>：文本化 household 任务，6类任务，50+ 位置，50+ 步骤。动作如 <code>go to countertop 1</code>, <code>take knife 1</code>, <code>clean knife 1 with sinkbasin 1</code></li>
+    <li><strong>WebShop</strong>：真实电商环境，1.18M 商品。动作如 <code>search[query]</code>, <code>click[option]</code>, <code>buy</code></li>
+    <li><strong>思维稀疏出现</strong>：决策任务中 Thought 不需要每步都有，模型自己决定何时思考</li>
+  </ul>
+</div>
+
+<!-- ==================== Prompting 设计 ==================== -->
+<h2>📝 Prompting 设计</h2>
+<div class="card warn">
+  <table>
+    <tr><th>策略</th><th>构造方式</th><th>Thought 密度</th></tr>
+    <tr><td><strong>ReAct (QA)</strong></td><td>6 个人工标注的 T-A-O 轨迹</td><td>Dense（每步都有 Thought）</td></tr>
+    <tr><td><strong>ReAct (FEVER)</strong></td><td>3 个人工标注轨迹</td><td>Dense</td></tr>
+    <tr><td><strong>ReAct (ALFWorld)</strong></td><td>每种任务 3 个标注，使用排列组合取最佳</td><td>Sparse（仅关键位置）</td></tr>
+    <tr><td><strong>ReAct (WebShop)</strong></td><td>1 个标注轨迹</td><td>Sparse</td></tr>
+  </table>
+  <p style="margin-top:0.5rem"><strong>特点：</strong>无需特殊格式设计、无 thought 模板、无样本筛选 — 标注者只需在动作旁写下自然语言思考。</p>
+</div>
+
+<!-- ==================== 实验结果 ==================== -->
+<h2>📊 实验结果</h2>
+
+<h3>知识密集型 QA</h3>
+<table>
+  <tr><th>方法</th><th>HotpotQA (EM)</th><th>FEVER (Acc)</th></tr>
+  <tr><td>Standard</td><td>28.7</td><td>57.1</td></tr>
+  <tr><td>CoT</td><td>29.4</td><td>56.3</td></tr>
+  <tr><td>CoT-SC (21 samples)</td><td>33.4</td><td>60.4</td></tr>
+  <tr><td>Act</td><td>25.7</td><td>58.9</td></tr>
+  <tr><td><strong>ReAct</strong></td><td><strong>27.4</strong></td><td><strong>60.9</strong></td></tr>
+  <tr style="background:#eff6ff"><td><strong>CoT-SC → ReAct</strong></td><td>34.2</td><td><strong>64.6</strong></td></tr>
+  <tr style="background:#eff6ff"><td><strong>ReAct → CoT-SC</strong></td><td><strong>35.1</strong></td><td>62.0</td></tr>
+  <tr><td style="color:var(--text-dim)">Supervised SoTA</td><td style="color:var(--text-dim)">67.5</td><td style="color:var(--text-dim)">89.5</td></tr>
+</table>
+
+<h3>交互式决策</h3>
+<table>
+  <tr><th>方法</th><th>ALFWorld (成功率%)</th><th>WebShop (成功率%)</th></tr>
+  <tr><td>BUTLER (IL, 10⁵ 样例)</td><td>37</td><td>—</td></tr>
+  <tr><td>IL + RL</td><td>—</td><td>28.7</td></tr>
+  <tr><td>Act (best of 6)</td><td>45</td><td>30.1</td></tr>
+  <tr><td><strong>ReAct (best of 6)</strong></td><td style="color:var(--success)"><strong>71</strong></td><td style="color:var(--success)"><strong>40.0</strong></td></tr>
+  <tr><td style="color:var(--text-dim)">Human Expert</td><td style="color:var(--text-dim)">—</td><td style="color:var(--text-dim)">59.6</td></tr>
+</table>
+
+<h3>错误模式分析（HotpotQA 200 样本人工标注）</h3>
+<table>
+  <tr><th>类别</th><th>ReAct</th><th>CoT</th><th>核心差异</th></tr>
+  <tr><td>✅ 真正确</td><td>94%</td><td>86%</td><td>ReAct 更 factual，更少幻觉</td></tr>
+  <tr><td>⚠️ 假正确（幻觉成功）</td><td>6%</td><td style="color:var(--danger)">14%</td><td>CoT 幻觉率高 2.3×</td></tr>
+  <tr><td>❌ 推理错误</td><td style="color:var(--danger)">47%</td><td>16%</td><td>ReAct 结构约束限制推理灵活性</td></tr>
+  <tr><td>❌ 搜索失败</td><td>23%</td><td>—</td><td>非信息性搜索结果导致推理偏轨</td></tr>
+  <tr><td>❌ 幻觉失败</td><td style="color:var(--success)">0%</td><td style="color:var(--danger)">56%</td><td><strong>ReAct 核心优势：零幻觉</strong></td></tr>
+</table>
+
+<!-- ==================== Finetuning ==================== -->
+<h2>🔧 Finetuning 实验</h2>
+<div class="card">
+  <ul>
+    <li>使用 3000 条正确 ReAct 轨迹作为 bootstrap 训练数据</li>
+    <li><strong>PaLM-8B finetuned ReAct</strong> 超越所有 <strong>PaLM-62B prompting</strong> 方法</li>
+    <li><strong>PaLM-62B finetuned ReAct</strong> 超越所有 <strong>PaLM-540B prompting</strong> 方法</li>
+    <li>Finetuning Standard/CoT 效果显著差于 ReAct/Act — 前者本质是让模型记住（可能错误的）知识，后者教会模型如何获取知识</li>
+  </ul>
+</div>
+
+<!-- ==================== 优势与局限 ==================== -->
+<h2>💪 优势</h2>
+<div class="card success">
+<ul>
+  <li><strong>零幻觉</strong>：通过外部知识检索消除推理中的事实幻觉（0% vs CoT 的 56%）</li>
+  <li><strong>可解释性</strong>：人类可直接审查 Thought 推理链，区分内部知识 vs 外部检索</li>
+  <li><strong>Human-in-the-loop</strong>：人类可通过编辑 Thought 实时纠正 Agent 行为</li>
+  <li><strong>极致 Few-shot</strong>：1-6 个样例 > 10⁵ 条训练数据的 IL/RL 方法</li>
+  <li><strong>通用性</strong>：同一范式适用于 QA、事实验证、文本游戏、网页导航四类任务</li>
+</ul>
+</div>
+
+<h2>⚠️ 局限性</h2>
+<div class="card danger">
+<ul>
+  <li><strong>推理错误率高</strong>（47%）：T-A-O 结构约束限制了推理灵活性，模型易陷入重复循环</li>
+  <li><strong>搜索质量依赖</strong>：23% 错误源于非信息性搜索结果，模型难以恢复</li>
+  <li><strong>Prompt 长度瓶颈</strong>：复杂任务需要更多示例，但受 in-context 长度限制</li>
+  <li><strong>模型规模要求</strong>：小模型（PaLM-8/62B）prompting 效果差，需要 540B 级别模型</li>
+  <li><strong>贪心解码</strong>：重复循环问题可能可以通过 beam search 缓解（论文留作未来工作）</li>
+</ul>
+</div>
+
+<!-- ==================== 与其他论文的连接 ==================== -->
+<h2>🔗 与其他论文的关联</h2>
+<div class="card">
+  <table>
+    <tr><th>连接到</th><th>关系</th><th>说明</th></tr>
+    <tr><td><strong>Chain-of-Thought (CoT)</strong></td><td>extends</td><td>ReAct 在 CoT 的推理轨迹基础上增加了外部行动和观测</td></tr>
+    <tr><td><strong>Inner Monologue</strong></td><td>improves</td><td>IM 只有密集外部反馈，ReAct 有灵活内部推理（71% vs 53%）</td></tr>
+    <tr><td><strong>LLM Agent Architecture</strong> (Survey)</td><td>is_instance_of</td><td>ReAct 是 Agent 架构中 Planning Module 的经典实例</td></tr>
+    <tr><td><strong>Planning Module</strong></td><td>relates_to</td><td>Thought 轨迹 = 目标分解 + 子目标追踪 + 计划调整</td></tr>
+    <tr><td><strong>Memory Module</strong></td><td>relates_to</td><td>Observation 累积在上下文中形成 working memory</td></tr>
+    <tr><td><strong>MemGPT</strong></td><td>related</td><td>MemGPT 的 Inner Thoughts 机制与 ReAct 的 Thought 同源</td></tr>
+    <tr><td><strong>Generative Agents</strong></td><td>related</td><td>两者都是 Agent 使用自然语言推理的早期代表作</td></tr>
+  </table>
+</div>
+
+<h2>🕸️ 知识图谱录入</h2>
+<table>
+  <tr><th>类型</th><th>新增</th><th>示例</th></tr>
+  <tr><td><span class="badge badge-method">Method</span></td><td>7</td><td>ReAct, TAO Loop, CoT, CoT-SC, ReAct+CoT-SC Hybrid, Inner Monologue, Bootstrapped Finetuning</td></tr>
+  <tr><td><span class="badge badge-concept">Concept</span></td><td>3</td><td>Augmented Action Space, Hallucination in Reasoning, Few-Shot In-Context Learning</td></tr>
+  <tr><td><span class="badge badge-dataset">Dataset</span></td><td>4</td><td>HotpotQA, FEVER, ALFWorld, WebShop</td></tr>
+  <tr><td>Tool</td><td>2</td><td>Wikipedia API Action Space, PaLM-540B</td></tr>
+  <tr><td>Author</td><td>3</td><td>Shunyu Yao, Karthik Narasimhan, Yuan Cao</td></tr>
+  <tr><td>跨论文连接</td><td>3</td><td>→ LLM Agent Architecture, → Planning Module, → Memory Module</td></tr>
+</table>
+<p style="margin-top:0.5rem;color:var(--text-dim)">图谱增长: 95→115 节点, 118→140 关系 | <a href="../../kg_visualization.html" style="color:var(--accent)">查看交互式图谱</a></p>
+
+<footer>
+  ScholarMind — 自动生成于 2026-05-06 | 论文 PDF: data/papers/arxiv_2210_03629.pdf
+</footer>
+
+</div>
+</body>
+</html>
