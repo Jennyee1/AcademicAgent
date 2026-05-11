@@ -90,10 +90,7 @@
             <h3>📈 知识图谱增长 (created_at 双时态)</h3>
             <canvas id="growthChart"></canvas>
         </div>
-        <div class="chart-box">
-            <h3>🔄 盲区消除进度</h3>
-            <canvas id="gapChart"></canvas>
-        </div>
+
     </div>
 
     <!-- 知识图谱入口 -->
@@ -198,37 +195,7 @@ new Chart(growthCtx, {
     }
 });
 
-// 盲区消除进度
-const gapCtx = document.getElementById('gapChart').getContext('2d');
-new Chart(gapCtx, {
-    type: 'line',
-    data: {
-        labels: ["2026-05-06"],
-        datasets: [{
-            label: '总盲区数',
-            data: [17],
-            borderColor: '#d97706',
-            backgroundColor: '#d9770622',
-            fill: true,
-            tension: 0.3,
-        }, {
-            label: '严重盲区',
-            data: [2],
-            borderColor: '#dc2626',
-            backgroundColor: '#dc262622',
-            fill: true,
-            tension: 0.3,
-        }]
-    },
-    options: {
-        responsive: true,
-        plugins: { legend: { labels: { color: '#64748b' } } },
-        scales: {
-            x: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
-            y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' }, beginAtZero: true }
-        }
-    }
-});
+
 </script>
 </body>
 </html>
