@@ -4,18 +4,18 @@ from __future__ import annotations
 ScholarMind - 知识图谱 Schema 定义
 ====================================
 
-定义通信感知（ISAC/6G）领域的知识图谱结构：
+定义大模型 Agent 领域的知识图谱结构：
   - 节点类型（Paper, Author, Concept, Method, Dataset, Metric, Tool）
   - 关系类型（PROPOSES, USES, IMPROVES, COMPARES_WITH, ...）
   - 数据类（KGNode, KGEdge, ExtractionResult）
 
 设计原则：
   1. Schema-first: 先定义 Schema，再用 Schema 引导 LLM 抽取
-  2. 领域定制: 节点/关系类型针对通信感知领域优化
+  2. 领域定制: 节点/关系类型针对 Agent 论文中的方法、架构、数据集、指标和系统优化
   3. 可扩展: 新增类型只需在枚举中追加，不改动存储/抽取逻辑
 
 【工程思考】为什么要有 Schema？
-  - 无 Schema 的自由抽取会导致同义词泛滥（如 "OFDM", "ofdm", "正交频分复用"）
+  - 无 Schema 的自由抽取会导致同义词泛滥（如 "ReAct", "react", "Reasoning and Acting"）
   - Schema 约束让 LLM 输出规范化，便于去重和图谱合并
   - Schema 也是知识图谱可视化和查询的基础
 """
@@ -43,7 +43,7 @@ class NodeType(str, Enum):
     """作者：论文的创作者"""
 
     CONCEPT = "concept"
-    """概念：领域术语/技术概念（如 OFDM, MIMO, RIS, ISAC）"""
+    """概念：领域术语/技术概念（如 Planning, Tool Use, Long-term Memory, RAG）"""
 
     METHOD = "method"
     """方法/算法：论文提出或使用的具体方法"""
@@ -93,7 +93,7 @@ class RelationType(str, Enum):
 
     # 概念 → 概念（层级关系）
     BELONGS_TO = "belongs_to"
-    """属于更大的概念类别（如 OFDM belongs_to 多载波技术）"""
+    """属于更大的概念类别（如 ReAct belongs_to Agent Planning Methods）"""
 
     RELATED_TO = "related_to"
     """与某个概念相关（通用关系，无法归入上述类别时使用）"""
@@ -113,7 +113,7 @@ class KGNode:
 
     Attributes:
         node_id: 唯一标识符（自动从 label + node_type 生成）
-        label: 节点显示名称（如 "OFDM", "Hybrid Beamforming"）
+        label: 节点显示名称（如 "ReAct", "Memory Module"）
         node_type: 节点类型
         properties: 附加属性（如论文的 year, venue; 方法的 complexity）
         source_paper: 该节点来源的论文标题（用于溯源）
@@ -123,7 +123,7 @@ class KGNode:
 
     【工程思考】为什么 node_id 自动生成？
     保证不同论文中提到的相同概念映射到同一个节点 ID。
-    例如 Paper A 和 Paper B 都提到 "OFDM"，应该合并到同一个节点。
+    例如 Paper A 和 Paper B 都提到 "ReAct"，应该合并到同一个节点。
 
     【双时态 (Bi-temporal) 设计】
     借鉴 Zep/Graphiti 的时序知识图谱思想，每个节点/边携带两个时间轴：
@@ -148,7 +148,7 @@ class KGNode:
         根据 label 和 node_type 生成唯一 ID
 
         算法：type_normalized_label
-        例如：concept_ofdm, method_hybrid_beamforming, paper_xxxx(hash)
+        例如：concept_tool_use, method_react, paper_xxxx(hash)
         """
         normalized = self._normalize_label(self.label)
         if self.node_type == NodeType.PAPER:
@@ -164,7 +164,7 @@ class KGNode:
         """
         标签标准化：小写 + 去除特殊字符 + 空格转下划线
 
-        用于保证 "OFDM" == "ofdm" == "Ofdm" 映射到同一节点
+        用于保证 "ReAct" == "react" == "REACT" 映射到同一节点
         """
         label = label.lower().strip()
         # 只保留字母、数字、空格
@@ -179,7 +179,7 @@ class KGNode:
 
         【工程思考】为什么需要合并？
         同一个概念可能从不同论文中被抽取，每次抽取的属性可能不同。
-        例如从 Paper A 抽取了 OFDM 的定义，从 Paper B 抽取了 OFDM 的应用场景。
+        例如从 Paper A 抽取了 ReAct 的定义，从 Paper B 抽取了 ReAct 的应用场景。
         """
         for key, value in other_properties.items():
             if key not in self.properties:
@@ -362,7 +362,7 @@ class ExtractedNode(BaseModel):
     与内部存储用的 KGNode dataclass 分离，各自演进互不影响。
     """
     label: str = Field(
-        description="实体名称，必须使用标准英文缩写（如 OFDM 而非 Orthogonal Frequency Division Multiplexing）"
+        description="实体名称，必须使用标准英文名称或缩写（如 ReAct、MemGPT、RAG、Toolformer）"
     )
     node_type: NodeTypeLiteral = Field(  # type: ignore[valid-type]
         description="节点类型，必须为以下之一: " + ", ".join(_NODE_TYPE_VALUES)
@@ -418,7 +418,7 @@ class ExtractionOutput(BaseModel):
 # Schema 描述（用于 Prompt 嵌入，提供人类可读的上下文）
 #
 # 【工程思考】SCHEMA_DESCRIPTION 仍然保留为自然语言描述，
-# 因为 Prompt 中的领域示例（如 "OFDM, MIMO"）能帮助 LLM
+# 因为 Prompt 中的领域示例（如 "ReAct, MemGPT"）能帮助 LLM
 # 更好地理解抽取目标。JSON 格式约束则交给 Pydantic + API。
 # ============================================================
 SCHEMA_DESCRIPTION = """
@@ -428,9 +428,9 @@ SCHEMA_DESCRIPTION = """
 - **paper**: 论文（属性: title, year, venue, doi, abstract）
 - **author**: 作者（属性: name, affiliation）
 - **concept**: 领域概念/术语（属性: name, definition, domain）
-  - 示例: OFDM, MIMO, RIS, ISAC, Beamforming, Channel Estimation
+  - 示例: Agent Planning, Tool Use, Long-term Memory, RAG, Reflection, Multi-Agent Collaboration
 - **method**: 方法/算法（属性: name, category, complexity, description）
-  - 示例: Hybrid Beamforming, MUSIC Algorithm, UKF-based Localization
+  - 示例: ReAct, Plan-and-Execute, Reflection, Toolformer
 - **dataset**: 数据集（属性: name, description, link）
 - **metric**: 评估指标（属性: name, formula, unit）
   - 示例: BER, RMSE, CRLB, Spectral Efficiency, Throughput

@@ -95,9 +95,9 @@ REPORT_SCHEMA_DESCRIPTION = """
     "key_results": "核心实验结果与结论",
     "strengths": ["优点1", "优点2"],
     "weaknesses": ["不足1", "不足2"],
-    "relevance_to_me": "与通信感知(ISAC/6G)研究方向的关联"
+    "relevance_to_me": "与大模型 Agent 研究方向的关联"
   },
   "figures_analyzed": [],
-  "tags": ["ISAC", "channel estimation", "OFDM"]
+  "tags": ["LLM Agent", "memory", "tool use"]
 }
 """

@@ -7,7 +7,7 @@ CLI interface for knowledge graph analysis, used by the Antigravity learning_pat
 
 Usage:
     python analyze_knowledge.py --action learning_path
-    python analyze_knowledge.py --action learning_path --focus "beamforming"
+    python analyze_knowledge.py --action learning_path --focus "agent memory"
     python analyze_knowledge.py --action learning_path --save    # 持久化为 JSON + HTML
     python analyze_knowledge.py --action detect_gaps
     python analyze_knowledge.py --action detect_gaps --save
@@ -425,7 +425,7 @@ Actions:
         choices=["learning_path", "detect_gaps", "importance", "temporal"],
         help="Action to perform",
     )
-    parser.add_argument("--focus", default="", help="Focus area for learning path (e.g., 'beamforming')")
+    parser.add_argument("--focus", default="", help="Focus area for learning path (e.g., 'agent memory')")
     parser.add_argument("--max-items", type=int, default=15, help="Max items in learning path")
     parser.add_argument("--top", type=int, default=10, help="Top N for importance ranking")
     parser.add_argument("--save", action="store_true", help="保存报告到 data/reports/learning_paths/ (JSON + HTML)")

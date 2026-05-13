@@ -214,7 +214,7 @@ async def query_knowledge(query: str) -> str:
     查询知识图谱中的信息。
 
     适合使用的场景：
-    - 用户问"ISAC 和什么方法相关？"
+    - 用户问"ReAct 和什么方法相关？"
     - 用户问"我读过的论文中有哪些概念？"
     - 需要查找某个方法/概念在知识图谱中的位置
 
@@ -310,12 +310,12 @@ async def get_related_concepts(
     - get_related_concepts: 图遍历，返回多跳关联的完整子图
 
     适合使用的场景：
-    - 用户问"和 OFDM 相关的概念有哪些？"
+    - 用户问"和 Agent Memory 相关的概念有哪些？"
     - 需要探索知识图谱中某个概念的周边网络
     - 了解某个方法的上下游关系
 
     Args:
-        concept_name: 概念名称（如 "OFDM", "Beamforming"）
+        concept_name: 概念名称（如 "ReAct", "Agent Memory"）
         depth: 查询深度（1=直接相关, 2=两跳关联, 默认2）
 
     Returns:

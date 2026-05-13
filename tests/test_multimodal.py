@@ -47,18 +47,18 @@ class TestFigureAnalysisResult:
     def test_to_markdown(self):
         result = FigureAnalysisResult(
             figure_type=FigureType.BLOCK_DIAGRAM,
-            description="OFDM transceiver block diagram",
-            key_findings=["Uses 64-QAM modulation", "CP length is 16"],
+            description="ReAct agent workflow diagram",
+            key_findings=["Planner calls tools", "Reflection updates memory"],
             entities=[
-                {"name": "OFDM Modulator", "type": "module"},
-                {"name": "Channel Estimator", "type": "module"},
+                {"name": "Planner", "type": "module"},
+                {"name": "Memory Store", "type": "module"},
             ],
         )
         md = result.to_markdown()
         assert "block_diagram" in md
-        assert "OFDM transceiver" in md
-        assert "64-QAM" in md
-        assert "Channel Estimator" in md
+        assert "ReAct agent" in md
+        assert "Planner calls tools" in md
+        assert "Memory Store" in md
 
     def test_empty_result(self):
         result = FigureAnalysisResult(
@@ -116,7 +116,7 @@ Abstract
 This paper presents a novel approach...
 
 1. Introduction
-In recent years, ISAC has gained attention...
+In recent years, LLM Agents with tool use and memory have gained attention...
 
 3. Proposed Method
 We propose a deep learning based...
@@ -154,7 +154,7 @@ References
         assert "method" in summary
 
     def test_roman_numeral_sections(self):
-        """通信领域论文常用数字编号"""
+        """Agent 领域论文常用数字编号"""
         text = """
 Abstract
 Test abstract.

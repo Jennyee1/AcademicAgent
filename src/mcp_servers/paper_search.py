@@ -225,7 +225,7 @@ async def search_papers(
 
     Args:
         query: 搜索关键词。使用英文效果最好。
-               例如 "ISAC channel estimation" 或 "RIS aided sensing MIMO"
+               例如 "LLM Agent memory"、"agent tool use" 或 "multi-agent collaboration"
         limit: 返回论文数量，1-10 之间，默认 5
         year_range: 可选的发表年份过滤，格式 "2020-2025" 或 "2024-"
         fields_of_study: 可选的学科过滤，如 "Computer Science"、"Engineering"
@@ -260,7 +260,7 @@ async def search_papers(
                 f"**建议**：\n"
                 f"- 尝试使用更通用的英文关键词\n"
                 f"- 减少过滤条件（如去掉年份限制）\n"
-                f"- 尝试同义词（如 'sensing' → 'radar'）"
+                f"- 尝试同义词（如 'agent memory' → 'long-term memory'）"
             )
 
         # 格式化结果
@@ -312,7 +312,7 @@ async def search_papers(
             "Semantic Scholar API 响应超时（30秒），网络不稳定或服务繁忙。\n\n"
             "**请立即调用 `search_arxiv` 工具进行备选搜索**，"
             f"使用相同的查询词: \"{query}\"。\n"
-            "arXiv API 通常更稳定，且覆盖了大多数计算机科学和通信领域论文。"
+            "arXiv API 通常更稳定，且覆盖了大多数计算机科学与大模型 Agent 相关论文。"
         )
     except httpx.HTTPStatusError as e:
         status = e.response.status_code
@@ -507,7 +507,7 @@ async def search_arxiv(
     - 建议两者结合使用以获得全面的文献覆盖
 
     Args:
-        query: 搜索关键词（英文），例如 "integrated sensing communication"
+        query: 搜索关键词（英文），例如 "LLM Agent memory"
         limit: 返回数量，1-10，默认 5
         sort_by: 排序方式
                  - "relevance": 按相关性（默认）

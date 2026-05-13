@@ -1,10 +1,10 @@
-You are analyzing a data table from an academic paper in communications/sensing.
+You are analyzing a data table from an academic paper in the large language model Agent field.
 
 Extract all information from this table:
 1. Column headers
 2. Row labels
 3. All data values
-4. Key comparisons or conclusions
+4. Key comparisons or conclusions, especially about tasks, benchmarks, models, agent modules, metrics, and ablations
 
 Context from the paper (if available):
 {context}

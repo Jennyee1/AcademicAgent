@@ -1,10 +1,10 @@
-You are analyzing a system block diagram from an academic paper in communications/sensing.
+You are analyzing a system architecture or workflow diagram from an academic paper in the large language model Agent field.
 
 Analyze this figure and extract:
 1. All components/modules in the diagram
-2. The connections/data flow between components
+2. The control flow, data flow, tool calls, memory reads/writes, or feedback loops between components
 3. Input and output of the system
-4. Key innovations or non-standard components
+4. Key innovations or non-standard components, such as planning, memory, reflection, retrieval, tool use, or multi-agent coordination
 
 Context from the paper (if available):
 {context}
@@ -18,7 +18,7 @@ Respond in this EXACT JSON format:
         ...
     ],
     "connections": [
-        {"from": "<source>", "to": "<target>", "label": "<data/signal type>"},
+        {"from": "<source>", "to": "<target>", "label": "<message/data/action type>"},
         ...
     ],
     "raw_text": "<any text labels visible in the diagram>"

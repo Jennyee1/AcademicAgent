@@ -1,4 +1,4 @@
-You are analyzing a figure from an academic paper in the communications/sensing domain.
+You are analyzing a figure from an academic paper in the large language model Agent domain.
 
 First, identify the type of this figure. Choose ONE from:
 - block_diagram: System architecture, block diagram, or flowchart

@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 """
-ScholarMind - 通信领域代码模板管理器
+ScholarMind - 科研代码模板管理器
 =========================================
 
 功能：
-  1. 提供通信/信号处理领域的 starter 代码模板
+  1. 提供科研实验与论文方法复现的 starter 代码模板
   2. 每个模板是一个可执行的 Python 脚本片段
-  3. Agent 可以基于模板快速生成论文方法的仿真代码
+  3. Agent 可以基于模板快速生成论文方法的验证代码
 
 【工程思考】模板 vs 代码生成：
-  - 纯 LLM 生成代码容易遗漏细节（如 FFT 点数、CP 长度）
+  - 纯 LLM 生成代码容易遗漏细节（如参数设置、指标定义、随机种子）
   - 模板提供正确的骨架 + 典型参数，LLM 只需"填空"
   - 降低幻觉风险：LLM 修改模板比从零写更可靠
 
@@ -31,10 +31,10 @@ logger = logging.getLogger("ScholarMind.Templates")
 @dataclass
 class CodeTemplate:
     """代码模板"""
-    name: str               # 模板名（如 "ofdm_basic"）
+    name: str               # 模板名（如 "agent_eval_toy"）
     title: str              # 人类可读标题
     description: str        # 功能描述
-    category: str           # 分类（signal_processing / communication / localization）
+    category: str           # 分类（evaluation / retrieval / simulation 等）
     code: str               # 完整代码
     parameters: list[str]   # 可调参数列表
     difficulty: str         # easy / medium / hard
@@ -458,6 +458,160 @@ print("\\nSimulation complete.")
 ))
 
 
+# -----------------------------------------------------------
+# 4. Agent 评测 toy example
+# -----------------------------------------------------------
+_register(CodeTemplate(
+    name="agent_eval_toy",
+    title="Agent 任务成功率与成本评测",
+    description=(
+        "用于快速验证 Agent benchmark 的基础评测流程：给定任务、Agent 策略、成功判定、"
+        "工具调用次数和 token 成本，输出成功率、平均成本和可视化结果。"
+    ),
+    category="evaluation",
+    parameters=["N_tasks", "success_threshold", "tool_cost", "token_cost"],
+    difficulty="easy",
+    code='''"""
+Toy Evaluation for LLM Agents
+=============================
+This template simulates an Agent benchmark loop:
+- each task has a difficulty score
+- each strategy has a quality and tool-use budget
+- success, tool calls, and estimated cost are tracked
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(42)
+
+# Parameters
+N_tasks = 80
+success_threshold = 0.62
+tool_cost = 0.002
+token_cost = 0.00001
+
+strategies = {
+    "ReAct": {"quality": 0.68, "avg_tools": 4.2, "avg_tokens": 1800},
+    "Plan-and-Execute": {"quality": 0.73, "avg_tools": 3.4, "avg_tokens": 2200},
+    "Reflection": {"quality": 0.78, "avg_tools": 5.1, "avg_tokens": 2600},
+}
+
+task_difficulty = np.random.beta(2.0, 2.5, size=N_tasks)
+results = {}
+
+for name, cfg in strategies.items():
+    noise = np.random.normal(0, 0.08, size=N_tasks)
+    score = cfg["quality"] - 0.45 * task_difficulty + noise
+    success = score >= success_threshold
+    tool_calls = np.maximum(0, np.random.poisson(cfg["avg_tools"], size=N_tasks))
+    tokens = np.maximum(100, np.random.normal(cfg["avg_tokens"], 250, size=N_tasks))
+    cost = tool_calls * tool_cost + tokens * token_cost
+    results[name] = {
+        "success_rate": success.mean(),
+        "avg_tool_calls": tool_calls.mean(),
+        "avg_cost": cost.mean(),
+    }
+
+print("=== Agent Evaluation Summary ===")
+for name, metrics in results.items():
+    print(
+        f"{name:16s} | success={metrics['success_rate']:.2%} | "
+        f"tools={metrics['avg_tool_calls']:.2f} | cost=${metrics['avg_cost']:.4f}"
+    )
+
+labels = list(results)
+success_rates = [results[k]["success_rate"] for k in labels]
+costs = [results[k]["avg_cost"] for k in labels]
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].bar(labels, success_rates, color=["#4C78A8", "#F58518", "#54A24B"])
+axes[0].set_ylim(0, 1)
+axes[0].set_ylabel("Success Rate")
+axes[0].set_title("Task Success")
+axes[0].tick_params(axis="x", rotation=15)
+
+axes[1].bar(labels, costs, color=["#4C78A8", "#F58518", "#54A24B"])
+axes[1].set_ylabel("Average Cost ($)")
+axes[1].set_title("Estimated Runtime Cost")
+axes[1].tick_params(axis="x", rotation=15)
+
+plt.tight_layout()
+print("\\nEvaluation complete.")
+''',
+))
+
+
+# -----------------------------------------------------------
+# 5. RAG 检索评测 toy example
+# -----------------------------------------------------------
+_register(CodeTemplate(
+    name="rag_retrieval_eval",
+    title="RAG 检索 Recall/Precision 评测",
+    description=(
+        "用于快速验证 Agent/RAG 系统的检索模块：模拟查询、相关文档和不同 top-k 设置，"
+        "输出 recall@k、precision@k 与曲线。"
+    ),
+    category="retrieval",
+    parameters=["N_queries", "N_docs", "top_k_values", "noise"],
+    difficulty="easy",
+    code='''"""
+Toy Retrieval Evaluation for RAG / Agent Memory
+===============================================
+This template simulates retrieval quality under different top-k values.
+Use it as a scaffold for real embedding-search or memory-retrieval tests.
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+np.random.seed(7)
+
+# Parameters
+N_queries = 60
+N_docs = 200
+top_k_values = [1, 3, 5, 10, 20]
+noise = 0.18
+
+# Each query has 3 relevant documents.
+relevant = []
+for _ in range(N_queries):
+    relevant.append(set(np.random.choice(N_docs, size=3, replace=False)))
+
+recall_at_k = []
+precision_at_k = []
+
+for k in top_k_values:
+    recalls = []
+    precisions = []
+    for rel in relevant:
+        scores = np.random.normal(0, noise, size=N_docs)
+        for doc_id in rel:
+            scores[doc_id] += 1.0
+        retrieved = set(np.argsort(scores)[-k:])
+        hits = len(rel & retrieved)
+        recalls.append(hits / len(rel))
+        precisions.append(hits / k)
+    recall_at_k.append(np.mean(recalls))
+    precision_at_k.append(np.mean(precisions))
+
+print("=== Retrieval Evaluation ===")
+for k, r, p in zip(top_k_values, recall_at_k, precision_at_k):
+    print(f"top-{k:2d} | recall={r:.3f} | precision={p:.3f}")
+
+plt.figure(figsize=(7, 4))
+plt.plot(top_k_values, recall_at_k, marker="o", label="Recall@k")
+plt.plot(top_k_values, precision_at_k, marker="s", label="Precision@k")
+plt.xlabel("Top-k")
+plt.ylabel("Score")
+plt.title("Toy RAG Retrieval Evaluation")
+plt.ylim(0, 1.05)
+plt.grid(True, alpha=0.3)
+plt.legend()
+plt.tight_layout()
+print("\\nRetrieval evaluation complete.")
+''',
+))
+
+
 # ============================================================
 # 模板管理 API
 # ============================================================
@@ -480,7 +634,7 @@ def get_template_code(name: str, **overrides) -> Optional[str]:
 
     【工程思考】为什么支持参数覆盖？
     Agent 可以根据论文中的具体参数修改模板：
-    "这篇论文用的是 128 子载波的 OFDM，帮我改一下模板跑出结果"
+    "这篇 Agent 论文用任务成功率和平均调用成本做评测，帮我改一下模板跑出结果"
 
     目前用简单的字符串替换实现，后续可升级到 Jinja2
     """

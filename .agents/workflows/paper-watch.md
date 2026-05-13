@@ -19,7 +19,7 @@ description: 追踪近期新论文 — 抓取 arXiv 最新论文，LLM 智能筛
    ```
    如果用户指定了特定主题，可用 `--topics` 参数覆盖：
    ```bash
-   python skills/paper_watch/scripts/fetch_papers.py --topics "ISAC,RIS" --days 3
+   python skills/paper_watch/scripts/fetch_papers.py --topics "LLM Agent,RAG,multi-agent collaboration" --days 3
    ```
 
 2. **读取今日摘要**:

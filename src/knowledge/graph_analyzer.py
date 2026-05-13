@@ -629,7 +629,7 @@ class KnowledgeGraphAnalyzer:
         生成个性化学习路径
 
         Args:
-            focus_area: 可选，聚焦的领域关键词（如 "beamforming"）
+            focus_area: 可选，聚焦的领域关键词（如 "agent memory"）
             max_items: 最大推荐条目数
 
         Returns:

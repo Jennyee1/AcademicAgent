@@ -1,62 +1,63 @@
-# 🧠 ScholarMind
+# ScholarMind
 
-> 面向通信感知领域的多模态学术研究 Agent — 可安装到任何 MCP 宿主（Antigravity / Claude Code 等）
+> 面向大模型 Agent 领域的多模态学术研究助手。它可以安装到任意 MCP 宿主中，辅助完成论文检索、PDF/图表理解、知识图谱沉淀、学习路径规划和代码复现实验。
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/Protocol-MCP-green.svg)](https://modelcontextprotocol.io/)
 
-## ✨ Feature 亮点
+## Feature 亮点
 
 | 功能 | 描述 |
 |:---|:---|
-| 🔍 **论文搜索** | 双源搜索（Semantic Scholar + arXiv），429 自动降级 |
-| 📊 **多模态理解** | 理解论文中的图表、公式和系统框图（按需触发，控制 Token） |
-| 🕸️ **知识图谱** | 阅读论文自动构建个人学术知识网络（Pydantic Schema 约束） |
-| 🎯 **学习规划** | 基于知识盲区检测（PageRank），智能推荐学习路径 |
-| 💻 **代码复现** | 将论文方法转化为可执行的仿真代码（沙箱隔离） |
+| **论文检索** | 双源检索 Semantic Scholar + arXiv，遇到 429 自动降级 |
+| **多模态理解** | 解析论文图表、表格、系统架构图和实验曲线，按需触发以控制 token 成本 |
+| **知识图谱** | 阅读论文后自动构建个人学术知识网络，使用 Pydantic Schema 约束结构化输出 |
+| **学习规划** | 基于知识盲区检测和 PageRank 分析，推荐下一步阅读与补强路径 |
+| **代码复现** | 将论文方法转化为可执行的实验或原型代码，并在沙箱中运行验证 |
 
-## 🏗️ Architecture
+## 项目定位
 
-```
+ScholarMind 当前聚焦大模型 Agent 研究，适合围绕以下主题建立可持续积累的研究工作流：
+
+- LLM Agent 架构、规划、反思、工具使用和多 Agent 协作
+- 长期记忆、RAG、知识图谱和上下文管理
+- Agent benchmark、评测闭环、可复现实验和工程框架
+- ReAct、MemGPT、Generative Agents、AutoGen、LangGraph 等代表性论文与系统
+
+## Architecture
+
+```text
 ScholarMind/
-├── CLAUDE.md                   ← 宿主入口文档
-├── install.py                  ← 一键安装脚本
-├── mcp_config.example.json     ← MCP 注册模板
-├── memory/                     ← 记忆系统（Hermes/MemU 文件系统范式）
-│   ├── MEMORY.md               ← 经验记忆（≤800 Token，新进旧出）
-│   ├── USER.md                 ← 用户画像（≤500 Token）
-│   ├── experiences/            ← 决策层经验（搜索策略、解析模式）
-│   └── knowledge_export/       ← 图谱可读导出（自动生成）
-├── .agents/workflows/          ← 3 个 Workflow (SOP 剧本)
-│   ├── paper-analysis.md       ← /paper-analysis
-│   ├── knowledge-build.md      ← /knowledge-build
-│   └── simulation.md           ← /simulation
-├── skills/                     ← 2 个 Skill (操作手册 + CLI 脚本)
-│   ├── paper_reader/           ← 论文解析 (PDF → 文本 + 图片)
-│   └── learning_path/          ← 学习路径 (盲区检测 + 路径规划)
+├── CLAUDE.md                   <- 宿主入口文档
+├── install.py                  <- 一键安装脚本
+├── mcp_config.example.json     <- MCP 注册模板
+├── memory/                     <- 文件系统记忆
+│   ├── MEMORY.md               <- 经验记忆
+│   ├── USER.md                 <- 用户画像
+│   ├── experiences/            <- 搜索策略、分析模式等经验
+│   └── knowledge_export/       <- 图谱可读导出
+├── .agents/workflows/          <- 工作流脚本
+│   ├── paper-analysis.md       <- /paper-analysis
+│   ├── knowledge-build.md      <- /knowledge-build
+│   ├── paper-watch.md          <- /paper-watch
+│   └── simulation.md           <- /simulation
+├── skills/                     <- Skills 与 CLI 脚本
+│   ├── paper_reader/           <- PDF -> 文本 + 图表
+│   ├── learning_path/          <- 盲区检测 + 路径规划
+│   └── paper_watch/            <- 论文追踪
 ├── src/
-│   ├── mcp_servers/            ← 3 个 MCP Server (常驻进程)
-│   │   ├── paper_search.py     ← 论文搜索 (Semantic Scholar + arXiv)
-│   │   ├── knowledge_graph.py  ← 知识图谱管理
-│   │   └── code_execution.py   ← 代码沙箱执行
-│   ├── core/                   ← 核心引擎
-│   │   ├── pdf_parser.py       ← PDF 解析 (PyMuPDF, Generator 模式)
-│   │   └── multimodal.py       ← 图表分析 (Strategy 模式)
-│   ├── knowledge/              ← 知识图谱模块
-│   │   ├── schema.py           ← Pydantic + Enum Schema (含 Zep 时间维度)
-│   │   ├── extractor.py        ← LLM 知识抽取 (Structured Output)
-│   │   ├── graph_store.py      ← NetworkX 图存储 + TF-IDF 语义检索 + Markdown 导出
-│   │   └── graph_analyzer.py   ← PageRank 图分析引擎
-│   └── execution/              ← 仿真执行模块
-│       ├── sandbox.py          ← 安全沙箱 (subprocess 隔离)
-│       └── templates.py        ← OFDM/MIMO/MUSIC 仿真模板
-├── prompts/                    ← Prompt 模板库
-└── tests/                      ← 测试套件
+│   ├── mcp_servers/            <- MCP Server
+│   ├── core/                   <- PDF 解析、多模态图表分析等核心能力
+│   ├── knowledge/              <- 知识图谱 Schema、抽取、存储、分析
+│   ├── report/                 <- 结构化研究报告与仪表盘
+│   └── execution/              <- 代码沙箱与实验模板
+├── prompts/                    <- Prompt 模板库
+└── tests/                      <- 测试套件
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
-### 1. 克隆 & 安装依赖
+### 1. 克隆并安装依赖
 
 ```bash
 git clone https://github.com/Jennyee1/AcademicAgent.git
@@ -77,11 +78,7 @@ cp .env.example .env   # Windows: copy .env.example .env
 python install.py
 ```
 
-这会自动：
-- 检查关键文件完整性
-- 创建 `data/` 目录
-- 从模板生成 `mcp_config.json`（自动填入你的项目路径）
-- 输出注册到宿主的指南
+安装脚本会检查关键文件、创建 `data/` 目录、生成 `mcp_config.json`，并输出注册到 MCP 宿主的指引。
 
 ### 4. 注册到宿主
 
@@ -94,36 +91,45 @@ python install.py
 
 ### 5. 开始使用
 
-```
-> "帮我搜索关于 ISAC channel estimation 的最新论文"
+```text
+> "帮我搜索关于 LLM Agent memory 的最新论文"
+> "分析这篇 ReAct 论文，并把核心概念写入知识图谱"
 > /paper-analysis
 > /knowledge-build
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | 类别 | 技术 |
 |:---|:---|
 | **协议** | MCP (Model Context Protocol) |
-| **PDF 解析** | PyMuPDF (Generator 模式, 防 OOM) |
-| **知识图谱** | NetworkX + Pydantic Structured Output + Zep 时间维度 |
-| **检索** | TF-IDF 语义检索 (ReMe hybrid retrieval) + 关键词回退 |
-| **搜索** | Semantic Scholar API + arXiv API (自动降级) |
-| **记忆** | Hermes-style MEMORY.md + USER.md + MemU Markdown 导出 |
-| **仿真** | subprocess 沙箱 + numpy/scipy |
+| **PDF 解析** | PyMuPDF，Generator 模式防 OOM |
+| **知识图谱** | NetworkX + Pydantic Structured Output + 时间维度 |
+| **检索** | TF-IDF 语义检索 + 关键词回退 |
+| **论文搜索** | Semantic Scholar API + arXiv API 自动降级 |
+| **记忆** | Hermes-style MEMORY.md + USER.md + Markdown 导出 |
+| **实验执行** | subprocess 沙箱 + numpy/scipy/matplotlib |
 
-## 🧠 Memory System
+## Memory System
 
-借鉴 Hermes Agent、ReMe、MemU、Zep 等记忆框架思想，实现了轻量级文件系统记忆：
+项目借鉴 Hermes Agent、ReMe、MemU、Zep/Graphiti 等记忆框架，实现轻量级文件系统记忆：
 
 | 记忆层 | 实现 | 灵感来源 |
 |:---|:---|:---|
-| 用户画像 | `memory/USER.md` (≤500 Token) | Mem0 用户建模 |
-| 经验记忆 | `memory/MEMORY.md` (≤800 Token，新进旧出) | Hermes MEMORY.md + ReMe |
+| 用户画像 | `memory/USER.md` | 用户研究偏好建模 |
+| 经验记忆 | `memory/MEMORY.md` | Hermes MEMORY.md + ReMe |
 | 时间维度 | `schema.py` 时间字段 | Zep/Graphiti 时序图谱 |
 | 语义检索 | `graph_store.py` TF-IDF | ReMe hybrid retrieval |
 | 可审计导出 | `export_to_markdown()` | MemU 文件系统记忆 |
 
-## 📝 License
+## GitHub Description 建议
+
+用于仓库简介的一句话可以写成：
+
+```text
+A multimodal academic research Agent for LLM Agent papers: search, PDF/figure understanding, knowledge graph memory, learning paths, and reproducible experiments via MCP.
+```
+
+## License
 
 MIT
