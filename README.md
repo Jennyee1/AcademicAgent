@@ -1,6 +1,6 @@
 # 🧠 ScholarMind
 
-> 面向通信感知领域的多模态学术研究 Agent — 可安装到任何 MCP 宿主（Antigravity / Claude Code 等）
+> 面向大模型 Agent 领域的多模态学术研究助手。它可以安装到任意 MCP 宿主中，辅助完成论文检索、PDF/图表理解、知识图谱沉淀、学习路径规划和代码复现实验。
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/)
 [![MCP](https://img.shields.io/badge/Protocol-MCP-green.svg)](https://modelcontextprotocol.io/)
