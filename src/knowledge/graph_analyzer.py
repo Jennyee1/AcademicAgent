@@ -785,3 +785,87 @@ class KnowledgeGraphAnalyzer:
             f"{len(gaps)} 个盲区, 健康度={health.get('健康等级', 'N/A')}"
         )
         return result
+
+
+# ================================================================
+# 盲区 → 检索查询  (闭合「盲区检测 → paper-watch 自动选题」回路)
+# ================================================================
+
+@dataclass(frozen=True)
+class GapQuery:
+    """从一个 KnowledgeGap 派生出来的 arXiv 检索查询。
+
+    设计意图: 让 Agent 把"我知道我不懂什么"转化为"我应该去搜什么"，
+    实现"主动学习"闭环 —— 盲区检测产生检索目标，paper-watch 自动跟踪。
+    """
+    query: str           # 用于 arXiv 检索的关键词字符串
+    gap_node_id: str     # 来源盲区的 node_id (synthetic id 也可，见 detect_knowledge_gaps)
+    gap_type: str        # foundation_gap | isolated_concept | single_source | temporal_gap
+    severity: float      # 来源盲区严重程度，用于排序与日志
+    rationale: str       # 人类可读：为什么这个 query 能填补这个盲区
+
+
+# 每个 gap_type 的查询模板。模板必须保持轻量、可被 arXiv 关键词检索吃到。
+# 之所以不用 LLM 重写 query: 1) 确定性可复现 2) 单测易写 3) 离线可跑
+_QUERY_TEMPLATES: dict[str, list[str]] = {
+    # 基础缺失: 需要 survey/tutorial/review 这种"宏观补全"
+    "foundation_gap": ["{label} survey", "{label} tutorial review"],
+    # 孤立概念: 需要看它怎么和别的东西连起来 —— applications / framework 类
+    "isolated_concept": ["{label} applications", "{label} framework"],
+    # 单源依赖: 找跨论文的对比/改进，避免单一来源偏差
+    "single_source": ["{label} comparison improvements"],
+    # 时代盲区: 主动找最新进展 (硬编码"latest advances" 比写当年年份更稳健)
+    "temporal_gap": ["{label} latest advances"],
+}
+
+
+def gaps_to_queries(
+    gaps: list[KnowledgeGap],
+    *,
+    top_n: int = 5,
+    min_severity: float = 0.0,
+    max_queries_per_gap: int = 1,
+) -> list[GapQuery]:
+    """把盲区检测结果转成 arXiv 检索 query。
+
+    Args:
+        gaps: detect_knowledge_gaps() 的输出
+        top_n: 最多保留多少个 gap 来生成 query (按 severity 排序)
+        min_severity: 过滤掉严重度低于此阈值的 gap
+        max_queries_per_gap: 每个 gap 最多产生几条 query (避免主题过度膨胀)
+
+    Returns:
+        GapQuery 列表，按 severity 从高到低排好序
+
+    设计权衡:
+        - 模板是确定性的硬编码：可单测，可解释，离线可跑；代价是 query 不"灵动"
+        - 不调 LLM 改写 query：未来若需要，可加一层可选的 LLM enricher，
+          但不能放进 critical path —— 评测希望这一步是 deterministic
+        - synthetic gap node (__temporal_bias__) 用 label 作为 query 主词，
+          因为 label 就是 "知识时代偏差" 这种描述性文本，配模板正好
+    """
+    if not gaps:
+        return []
+    # 过滤 + 排序
+    filtered = [g for g in gaps if g.severity >= min_severity]
+    filtered.sort(key=lambda g: g.severity, reverse=True)
+    top = filtered[:top_n]
+
+    out: list[GapQuery] = []
+    for gap in top:
+        templates = _QUERY_TEMPLATES.get(gap.gap_type, [])
+        if not templates:
+            # 未知 gap_type 走兜底：直接用 label
+            templates = ["{label}"]
+        for tmpl in templates[:max_queries_per_gap]:
+            query = tmpl.format(label=gap.label).strip()
+            if not query:
+                continue
+            out.append(GapQuery(
+                query=query,
+                gap_node_id=gap.node_id,
+                gap_type=gap.gap_type,
+                severity=gap.severity,
+                rationale=f"[{gap.gap_type}] {gap.reason}",
+            ))
+    return out

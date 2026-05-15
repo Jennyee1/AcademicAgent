@@ -18,14 +18,25 @@ description: 追踪近期新论文 — 抓取 arXiv 最新论文，LLM 智能筛
 
 ## 步骤
 
-1. **抓取近期论文** (如果今日未运行过):
+1. **抓取近期论文**（**两种模式**任选其一，可叠加）：
+
+   **A. 用户主题模式**（沿用 USER.md / `--topics`）：
    ```bash
    python skills/paper_watch/scripts/fetch_papers.py --days 7
-   ```
-   如果用户指定了特定主题，可用 `--topics` 参数覆盖：
-   ```bash
+   # 或手动指定主题：
    python skills/paper_watch/scripts/fetch_papers.py --topics "LLM Agent,RAG,multi-agent collaboration" --days 3
    ```
+
+   **B. 盲区驱动模式**（self-improving 闭环：从知识图谱当前盲区自动选题）：
+   ```bash
+   # 预演：只看会生成哪些 query，不访问 arXiv
+   python skills/paper_watch/scripts/gap_driven_watch.py --dry-run
+
+   # 真跑：用 top-N 最严重盲区生成 query 并抓 arXiv
+   python skills/paper_watch/scripts/gap_driven_watch.py --top-n 5 --days 7
+   ```
+   产出的 digest 每篇论文都附 `gap_attributions`，可解释它在补哪个盲区。
+   适合在 `/knowledge-build` 跑完后使用，让 Agent 主动给用户推该补的论文。
 
 2. **读取今日摘要**:
    ```bash
