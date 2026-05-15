@@ -56,11 +56,18 @@ class AdapterContext:
     gold     : 该任务的 gold 行（dict），部分 adapter 需要它取 fixture 路径
     offline  : 是否离线模式（adapter 自行决定能否在离线下工作）
     dataset_path : 数据集目录，用于解析相对 fixture 路径
+    lessons  : runtime 注入的历史 FailureLesson 列表（由 failure_lookup 产出）
+    hints    : critic 派生的运行时 hints；adapter 可读取 key 调整自身行为，
+               未识别的 key 应被忽略。约定 key:
+                 - backoff_ms      : 调用前 sleep N 毫秒
+                 - retry_delay_ms  : 同上，用于 transient 错误的延迟重试
     """
     sandbox: Any
     gold: dict | None = None
     offline: bool = False
     dataset_path: Any = None
+    lessons: list[Any] = field(default_factory=list)
+    hints: dict[str, Any] = field(default_factory=dict)
 
 
 AdapterFn = Callable[[dict, AdapterContext], Awaitable[ToolCallResult]]

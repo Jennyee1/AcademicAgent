@@ -7,6 +7,7 @@ paper_search adapter —— 封装论文检索能力。
 返回结构化论文列表供 retrieval 指标计算；timeout/429 映射到 error_category。
 """
 
+import asyncio
 import xml.etree.ElementTree as ET
 
 from .base import AdapterContext, ToolCallResult, register_adapter
@@ -14,6 +15,22 @@ from .base import AdapterContext, ToolCallResult, register_adapter
 _S2_SEARCH = "https://api.semanticscholar.org/graph/v1/paper/search"
 _S2_PAPER = "https://api.semanticscholar.org/graph/v1/paper"
 _ARXIV = "https://export.arxiv.org/api/query"
+
+
+async def _apply_pre_call_hints(ctx: AdapterContext) -> None:
+    """统一消费 runtime hints：发请求前的 backoff / retry_delay。
+
+    约定的 hint key:
+      - backoff_ms      : critic 在 rate_limit 后注入；首次调用历史有 rate_limit 卡片时也会预防性注入
+      - retry_delay_ms  : critic 在 transient network / llm_api_error 后注入
+    未识别的 key 一律忽略，向前兼容。
+    """
+    delay_ms = max(
+        int(ctx.hints.get("backoff_ms", 0) or 0),
+        int(ctx.hints.get("retry_delay_ms", 0) or 0),
+    )
+    if delay_ms > 0:
+        await asyncio.sleep(delay_ms / 1000)
 
 
 def _classify_http_error(exc: Exception) -> tuple[str, str]:
@@ -41,6 +58,7 @@ async def search_papers(args: dict, ctx: AdapterContext) -> ToolCallResult:
         return ToolCallResult.failure(
             "search_papers", "offline mode: external API skipped", "network"
         )
+    await _apply_pre_call_hints(ctx)
     import httpx
     query = args.get("query", "")
     limit = int(args.get("limit", 5))
@@ -74,6 +92,7 @@ async def get_paper_details(args: dict, ctx: AdapterContext) -> ToolCallResult:
         return ToolCallResult.failure(
             "get_paper_details", "offline mode: external API skipped", "network"
         )
+    await _apply_pre_call_hints(ctx)
     import httpx
     paper_id = args.get("paper_id", "")
     try:
@@ -104,6 +123,7 @@ async def get_related_papers(args: dict, ctx: AdapterContext) -> ToolCallResult:
         return ToolCallResult.failure(
             "get_related_papers", "offline mode: external API skipped", "network"
         )
+    await _apply_pre_call_hints(ctx)
     import httpx
     paper_id = args.get("paper_id", "")
     relation = args.get("relation", "references")
@@ -138,6 +158,7 @@ async def search_arxiv(args: dict, ctx: AdapterContext) -> ToolCallResult:
         return ToolCallResult.failure(
             "search_arxiv", "offline mode: external API skipped", "network"
         )
+    await _apply_pre_call_hints(ctx)
     import httpx
     query = args.get("query", "")
     limit = int(args.get("limit", 5))

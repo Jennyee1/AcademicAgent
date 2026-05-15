@@ -11,12 +11,14 @@ AcademicAgent 评测统一 CLI。
   list             列出数据集中的任务
   validate         校验数据集，返回非零退出码表示有问题
   promote-failures 把失败卡片转成新 gold 任务的候选（数据飞轮）
+  lessons          查询历史失败卡片 -> 紧凑 lesson 列表（供宿主 Agent SOP 注入）
 
 示例：
   python -m src.evaluation.cli run --dataset data/evaluation/datasets/smoke \\
       --out data/evaluation/runs --tier smoke --offline
   python -m src.evaluation.cli gate --run data/evaluation/runs/<run_id> --tier smoke
   python -m src.evaluation.cli validate --dataset data/evaluation/datasets/smoke
+  python -m src.evaluation.cli lessons --capability retrieval --tool search_papers --top 3
 """
 
 import argparse
@@ -195,6 +197,74 @@ def _cmd_promote_failures(args: argparse.Namespace) -> int:
 
 
 # ------------------------------------------------------------------ #
+# lessons
+# ------------------------------------------------------------------ #
+
+def _cmd_lessons(args: argparse.Namespace) -> int:
+    """查询历史失败卡片 -> 紧凑 lesson 列表。
+
+    用途：宿主 Agent (Antigravity/Claude Code) 在执行 workflow 前调用本命令，
+    把"历史教训"作为 anti-pattern hint 注入到当前会话的 prompt 里。
+
+    输出格式 --format text|json。text 适合人读 + 直接粘到 prompt；
+    json 适合脚本化消费。
+    """
+    from .failure_lookup import load_all_cards, lookup
+
+    cards = load_all_cards(args.cards_dir)
+    if not cards:
+        if args.format == "json":
+            print("[]")
+        else:
+            print(f"# 历史失败教训 — 空（{args.cards_dir} 暂无卡片）")
+        return 0
+
+    lessons = lookup(
+        cards, capability=args.capability or "", tool=args.tool or "",
+        top_k=args.top,
+    )
+    if args.format == "json":
+        print(json.dumps(
+            [
+                {
+                    "card_id": le.card_id,
+                    "capability": le.capability,
+                    "category": le.category,
+                    "severity": le.severity,
+                    "root_cause": le.root_cause_hypothesis,
+                    "fix_candidate": le.fix_candidate,
+                    "tags": list(le.tags),
+                }
+                for le in lessons
+            ],
+            ensure_ascii=False, indent=2,
+        ))
+        return 0
+
+    # text 格式
+    header_parts = []
+    if args.capability:
+        header_parts.append(f"capability={args.capability}")
+    if args.tool:
+        header_parts.append(f"tool={args.tool}")
+    header = " ".join(header_parts) if header_parts else "all"
+    print(f"# 历史失败教训 — {header}（top {len(lessons)}/{len(cards)}）\n")
+    if not lessons:
+        print("（过滤后无匹配卡片）")
+        return 0
+    for le in lessons:
+        print(f"## [{le.severity}] {le.card_id} — {le.category}")
+        if le.root_cause_hypothesis:
+            print(f"  根因假设: {le.root_cause_hypothesis}")
+        if le.fix_candidate:
+            print(f"  修复候选: {le.fix_candidate}")
+        if le.tags:
+            print(f"  标签: {', '.join(le.tags)}")
+        print()
+    return 0
+
+
+# ------------------------------------------------------------------ #
 # parser
 # ------------------------------------------------------------------ #
 
@@ -255,6 +325,24 @@ def _build_parser() -> argparse.ArgumentParser:
     pf = sub.add_parser("promote-failures", help="失败卡片 -> 回归任务候选")
     pf.add_argument("--cards", required=True, help="failure_cards/<run_id>.jsonl 路径")
     pf.set_defaults(func=_cmd_promote_failures)
+
+    # lessons
+    pls = sub.add_parser(
+        "lessons",
+        help="查询历史失败卡片 -> 紧凑 lesson 列表（供宿主 Agent SOP 注入）",
+    )
+    pls.add_argument(
+        "--cards-dir", default="data/evaluation/failure_cards",
+        help="失败卡片目录（默认 data/evaluation/failure_cards）",
+    )
+    pls.add_argument("--capability", default=None,
+                     help="按能力过滤，如 retrieval / kg_extraction / kg_query / ...")
+    pls.add_argument("--tool", default=None,
+                     help="按工具名过滤（软匹配 repro_command / tags）")
+    pls.add_argument("--top", type=int, default=5, help="返回 top-K（默认 5）")
+    pls.add_argument("--format", choices=["text", "json"], default="text",
+                     help="输出格式：text 给人 + 粘 prompt；json 给脚本")
+    pls.set_defaults(func=_cmd_lessons)
 
     return p
 

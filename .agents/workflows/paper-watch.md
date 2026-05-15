@@ -10,6 +10,11 @@ description: 追踪近期新论文 — 抓取 arXiv 最新论文，LLM 智能筛
 
 - 读取 `memory/USER.md` 了解用户研究方向
 - 读取 `memory/MEMORY.md` 了解搜索经验
+- **加载历史失败教训**（避坑提示，可选但推荐）：
+  ```bash
+  python -m src.evaluation.cli lessons --capability retrieval --tool search_arxiv --top 3
+  ```
+  如果历史卡片显示 rate_limit/timeout 频发，提前在 `fetch_papers.py` 调用间加退避。
 
 ## 步骤
 

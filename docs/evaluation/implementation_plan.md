@@ -127,4 +127,85 @@ python -m src.evaluation.cli promote-failures --cards data/evaluation/failure_ca
 1. **系统可靠性**：`tool_success_rate`、延迟分布、成本（含估算方式）。
 2. **学术质量**：检索 `recall@k` / `mrr`、KG 抽取 F1、Schema 合法率。
 3. **工作流价值**：L2 工作流完成率、工具序列匹配；以及由失败卡片驱动的持续改进记录。
+4. **自纠错能力**：`lesson_assisted_rate` 软指标（见 §11）—— 量化"被 critic 救活"的任务占比。
 
+## 11. Runtime self-correction —— 失败卡片飞轮的双向闭环
+
+§7 的失败卡片是**离线**飞轮：失败 → 卡片 → `promote-failures` → 新 gold。
+本节描述与之并行的**在线**飞轮：让 runtime 能读取历史卡片、在调用时避坑、在失败后受限重试。
+
+### 11.1 组件
+
+```
+src/evaluation/
+  failure_lookup.py   加载 + 按 (capability, tool, severity, 新鲜度) 排序匹配
+  critic.py           确定性 (no-LLM) 控制器:
+                        - derive_pre_hints()      调用前预防
+                        - decide_after_failure()  失败后决策重试 + 修正动作
+  layers/layer1_component.py
+                       在 adapter 调用前注入 lessons + pre-hints；
+                       失败后过 critic；每任务硬上限 max_retries=1；
+                       critic 决策痕迹写 raw["_critic"] 供审计
+  adapters/base.py    AdapterContext 增 lessons / hints 字段
+  adapters/{extractor,paper_search}.py
+                       消费 backoff_ms / retry_delay_ms hint
+  aggregate.py        新增软指标 lesson_assisted_rate (warn-only)
+```
+
+### 11.2 Hint 约定
+
+| hint key | 含义 | 触发源 |
+|:---|:---|:---|
+| `backoff_ms` | 调用前 sleep N ms | 历史 `rate_limit` lesson / 失败后 critic |
+| `retry_delay_ms` | 同上，用于 transient `llm_api_error` / `network` | 失败后 critic |
+
+未识别的 key 一律忽略 —— 向前兼容。adapter 实现自行决定如何应用 hint。
+
+### 11.3 critic 决策表（确定性规则，与 `failure_cards._RULES` 同风格）
+
+| 错误类别 | 决策 | 修正动作 |
+|:---|:---|:---|
+| `rate_limit` | 重试 1 次 | `backoff_ms=5000` |
+| `timeout` | 重试 1 次 | `retry_delay_ms=1500` |
+| `llm_api_error` 且历史含"description ... 200 字符上限" | **不重试** | 已知不可修，省 token |
+| `llm_api_error`（其它） | 重试 1 次 | `retry_delay_ms=2000` |
+| `network` | 重试 1 次 | `retry_delay_ms=1000` |
+| `empty_extraction` | 不重试 | 无 prompt 级 hint 通道 |
+| 其它 | 不重试 | 保守默认 |
+
+预算 `_MAX_CRITIC_RETRIES = 1`。提高它的代价是延迟与 token，须明确动机。
+
+### 11.4 宿主 Agent SOP 注入（路径 B）
+
+CLI 新增：
+
+```bash
+python -m src.evaluation.cli lessons \
+    --capability retrieval --tool search_papers --top 3 \
+    [--format text|json]
+```
+
+四个 workflow 的"前置准备"段已加上调用：宿主 Agent（Antigravity / Claude Code）在
+执行 SOP 前先把命令输出作为 anti-pattern hint 注入到当前会话 prompt。这与
+路径 A（evaluation runtime 自己消费 hints）是同一查找逻辑、不同消费者。
+
+### 11.5 lesson_assisted_rate 软指标
+
+`aggregate.py` 在 `by_metric` 中新增 `lesson_assisted_rate`：
+
+- numerator   = 任务成功 **且**（pre_hints 非空 或 critic 触发了重试）
+- denominator = 所有非 skipped 任务
+
+趋势上升 → critic 在挽救更多任务（飞轮起效）。
+趋势下降 → 要么底层 bug 被根治（好），要么 critic 失效（坏）—— 须结合
+`completion_rate` 一起解读。**warn-only**，不进硬门禁，避免"为了好看而故意触发 critic"
+反向激励。
+
+### 11.6 测试
+
+- `tests/test_failure_lookup.py` — 11 例，覆盖目录缺失/空、损坏文件容错、按 capability
+  过滤、severity 排序、tool 命中加权、tags 命中、top_k。
+- `tests/test_runtime_critic.py` — 11 例，含 critic 单测 + 三个端到端场景：
+  - **(A)** 历史 lesson → pre-hint → 首次成功（预防）
+  - **(B)** 运行时 `rate_limit` → critic 重试 → 第二次成功（自纠错）
+  - **(C)** 命中已知不可修模式 → 不重试（节省 token）

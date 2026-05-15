@@ -121,6 +121,28 @@ def aggregate_run(
         "min": completion, "max": completion,
     })
 
+    # ---- 软指标: lesson_assisted_rate ---------------------------------------
+    # 衡量"被 critic 救活"的任务占比。warn-only —— 不进硬门禁，仅作趋势观测：
+    #   numerator   = 任务成功 且 (有 pre_hints 或 critic 触发了重试)
+    #   denominator = 所有非 skipped 任务
+    # 趋势上升 -> critic 在挽救更多任务（说明历史飞轮有效）
+    # 趋势下降 -> 要么底层 bug 被根治（好事），要么 critic 失效（坏事）
+    # 需结合 completion_rate / by_metric 一起读。
+    assisted_ok = 0
+    for r in task_results:
+        critic = (r.raw or {}).get("_critic") or {}
+        if (r.status == "ok"
+                and (bool(critic.get("pre_hints"))
+                     or int(critic.get("retries_used", 0)) > 0)):
+            assisted_ok += 1
+    assisted_rate = (
+        round(assisted_ok / len(non_skipped_all), 4) if non_skipped_all else 0.0
+    )
+    by_metric.setdefault("lesson_assisted_rate", {
+        "mean": assisted_rate, "n": len(non_skipped_all),
+        "min": assisted_rate, "max": assisted_rate,
+    })
+
     # 延迟
     latency = latency_stats(traces)
 

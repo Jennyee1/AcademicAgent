@@ -7,18 +7,28 @@ extractor adapter —— KnowledgeExtractor.extract_from_text 的薄封装。
 的去重/合并，直接评测「纯抽取」结果。同样把 API 报错显式暴露为 llm_api_error。
 """
 
+import asyncio
+
 from .base import AdapterContext, ToolCallResult, register_adapter
 from .knowledge_graph import _looks_like_api_error
 
 
 @register_adapter("extract_from_text")
 async def extract_from_text(args: dict, ctx: AdapterContext) -> ToolCallResult:
-    """纯抽取：raw = {"nodes": [...], "edges": [...], "confidence": float}。"""
+    """纯抽取：raw = {"nodes": [...], "edges": [...], "confidence": float}。
+
+    runtime hint 消费：
+      - retry_delay_ms : 调用前 sleep N ms（critic 在 transient llm_api_error 后注入）
+    """
     from src.knowledge.extractor import KnowledgeExtractor
 
     text = args.get("text", "")
     paper_title = args.get("paper_title", "")
     paper_year = args.get("paper_year", "")
+
+    delay_ms = int(ctx.hints.get("retry_delay_ms", 0) or 0)
+    if delay_ms > 0:
+        await asyncio.sleep(delay_ms / 1000)
 
     extractor = KnowledgeExtractor()
     try:
