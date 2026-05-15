@@ -111,7 +111,7 @@ class TestSearchPapersIntegration:
     @pytest.mark.asyncio
     async def test_search_returns_results(self):
         """基本搜索功能"""
-        result = await search_papers("OFDM channel estimation", limit=3)
+        result = await search_papers("LLM Agent memory", limit=3)
         if _is_rate_limited(result):
             pytest.skip(RATE_LIMIT_HINT)
         assert "搜索结果" in result
@@ -121,7 +121,7 @@ class TestSearchPapersIntegration:
     async def test_search_with_year_filter(self):
         """年份过滤"""
         await asyncio.sleep(RATE_LIMIT_DELAY)
-        result = await search_papers("ISAC", limit=3, year_range="2023-2025")
+        result = await search_papers("LLM Agent", limit=3, year_range="2023-2025")
         if _is_rate_limited(result):
             pytest.skip(RATE_LIMIT_HINT)
         assert "搜索结果" in result
@@ -164,14 +164,14 @@ class TestArxivSearchIntegration:
     @pytest.mark.asyncio
     async def test_arxiv_search_returns_results(self):
         """arXiv 基本搜索"""
-        result = await search_arxiv("integrated sensing communication", limit=3)
+        result = await search_arxiv("LLM Agent tool use", limit=3)
         assert "arXiv" in result
         assert "[1]" in result
 
     @pytest.mark.asyncio
     async def test_arxiv_contains_arxiv_id(self):
         """arXiv 搜索结果包含 arXiv ID"""
-        result = await search_arxiv("MIMO beamforming", limit=2)
+        result = await search_arxiv("agent tool use", limit=2)
         assert "arXiv ID" in result
 
 

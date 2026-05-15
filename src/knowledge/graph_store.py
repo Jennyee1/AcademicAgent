@@ -43,8 +43,8 @@ class KnowledgeGraphStore:
 
     Usage:
         store = KnowledgeGraphStore()
-        store.add_node(KGNode(label="OFDM", node_type=NodeType.CONCEPT))
-        store.add_node(KGNode(label="MIMO", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="ReAct", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="MemGPT", node_type=NodeType.CONCEPT))
         store.add_edge(KGEdge(
             source_id="concept_ofdm",
             target_id="concept_mimo",
@@ -1009,4 +1009,3 @@ class KnowledgeGraphStore:
         output.write_text(enhanced, encoding="utf-8")
         logger.info(f"知识图谱可视化已保存: {output} ({self.node_count} 节点, {self.edge_count} 边)")
         return str(output.resolve())
-

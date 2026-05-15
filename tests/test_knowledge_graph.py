@@ -62,28 +62,28 @@ class TestKGNode:
 
     def test_node_id_generation(self):
         """验证节点 ID 的自动生成"""
-        node = KGNode(label="OFDM", node_type=NodeType.CONCEPT)
-        assert node.node_id == "concept_ofdm"
+        node = KGNode(label="ReAct", node_type=NodeType.CONCEPT)
+        assert node.node_id == "concept_react"
 
     def test_node_id_normalization(self):
         """验证标签标准化（大小写不敏感、去特殊字符）"""
-        n1 = KGNode(label="OFDM", node_type=NodeType.CONCEPT)
-        n2 = KGNode(label="ofdm", node_type=NodeType.CONCEPT)
-        n3 = KGNode(label="Ofdm", node_type=NodeType.CONCEPT)
+        n1 = KGNode(label="ReAct", node_type=NodeType.CONCEPT)
+        n2 = KGNode(label="react", node_type=NodeType.CONCEPT)
+        n3 = KGNode(label="REACT", node_type=NodeType.CONCEPT)
         assert n1.node_id == n2.node_id == n3.node_id
 
     def test_node_id_with_spaces(self):
         """验证带空格的标签标准化"""
         node = KGNode(
-            label="Hybrid Beamforming",
+            label="Plan and Execute",
             node_type=NodeType.METHOD,
         )
-        assert node.node_id == "method_hybrid_beamforming"
+        assert node.node_id == "method_plan_and_execute"
 
     def test_paper_node_id_uses_hash(self):
         """论文节点使用 hash 避免 ID 过长"""
         node = KGNode(
-            label="A Very Long Paper Title About ISAC Systems",
+            label="A Very Long Paper Title About LLM Agents",
             node_type=NodeType.PAPER,
         )
         assert node.node_id.startswith("paper_")
@@ -92,7 +92,7 @@ class TestKGNode:
     def test_merge_properties(self):
         """验证属性合并"""
         node = KGNode(
-            label="OFDM",
+            label="ReAct",
             node_type=NodeType.CONCEPT,
             properties={"definition": "short def"},
         )
@@ -103,30 +103,30 @@ class TestKGNode:
     def test_merge_list_properties(self):
         """验证列表类型属性合并去重"""
         node = KGNode(
-            label="OFDM",
+            label="ReAct",
             node_type=NodeType.CONCEPT,
-            properties={"domains": ["5G", "WiFi"]},
+            properties={"domains": ["Planning", "Tool Use"]},
         )
-        node.merge_properties({"domains": ["WiFi", "6G"]})
-        assert "5G" in node.properties["domains"]
-        assert "6G" in node.properties["domains"]
-        # WiFi 不应重复
-        wifi_count = sum(1 for d in node.properties["domains"] if d == "WiFi")
-        assert wifi_count == 1
+        node.merge_properties({"domains": ["Tool Use", "Memory"]})
+        assert "Planning" in node.properties["domains"]
+        assert "Memory" in node.properties["domains"]
+        # Tool Use 不应重复
+        tool_use_count = sum(1 for d in node.properties["domains"] if d == "Tool Use")
+        assert tool_use_count == 1
 
     def test_serialization(self):
         """验证序列化/反序列化"""
         node = KGNode(
-            label="MIMO",
+            label="MemGPT",
             node_type=NodeType.CONCEPT,
-            properties={"domain": "wireless"},
+            properties={"domain": "agent memory"},
             source_paper="Test Paper",
         )
         data = node.to_dict()
         restored = KGNode.from_dict(data)
-        assert restored.label == "MIMO"
+        assert restored.label == "MemGPT"
         assert restored.node_type == NodeType.CONCEPT
-        assert restored.properties["domain"] == "wireless"
+        assert restored.properties["domain"] == "agent memory"
         assert restored.node_id == node.node_id
 
 
@@ -136,17 +136,17 @@ class TestKGEdge:
     def test_edge_id(self):
         """验证边 ID 的格式"""
         edge = KGEdge(
-            source_id="concept_ofdm",
-            target_id="concept_mimo",
+            source_id="concept_react",
+            target_id="concept_memgpt",
             relation_type=RelationType.RELATED_TO,
         )
-        assert edge.edge_id == "concept_ofdm--related_to-->concept_mimo"
+        assert edge.edge_id == "concept_react--related_to-->concept_memgpt"
 
     def test_serialization(self):
         """验证边的序列化/反序列化"""
         edge = KGEdge(
             source_id="paper_abc123",
-            target_id="method_beamforming",
+            target_id="method_plan_and_execute",
             relation_type=RelationType.PROPOSES,
             confidence=0.9,
         )
@@ -170,13 +170,13 @@ class TestExtractionResult:
         """摘要输出格式"""
         result = ExtractionResult(
             nodes=[
-                KGNode(label="OFDM", node_type=NodeType.CONCEPT),
-                KGNode(label="BER", node_type=NodeType.METRIC),
+                KGNode(label="ReAct", node_type=NodeType.CONCEPT),
+                KGNode(label="Task Success Rate", node_type=NodeType.METRIC),
             ],
             edges=[
                 KGEdge(
-                    source_id="concept_ofdm",
-                    target_id="metric_ber",
+                    source_id="concept_react",
+                    target_id="metric_task_success_rate",
                     relation_type=RelationType.EVALUATED_BY,
                 ),
             ],
@@ -206,26 +206,26 @@ class TestKnowledgeGraphStore:
     def populated_store(self, store):
         """创建一个预填充的图谱"""
         # 添加节点
-        store.add_node(KGNode(label="OFDM", node_type=NodeType.CONCEPT))
-        store.add_node(KGNode(label="MIMO", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="ReAct", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="MemGPT", node_type=NodeType.CONCEPT))
         store.add_node(
             KGNode(
-                label="Hybrid Beamforming",
+                label="Plan and Execute",
                 node_type=NodeType.METHOD,
             )
         )
-        store.add_node(KGNode(label="BER", node_type=NodeType.METRIC))
+        store.add_node(KGNode(label="Task Success Rate", node_type=NodeType.METRIC))
         store.add_node(
             KGNode(
-                label="Some ISAC Paper",
+                label="Some Agent Paper",
                 node_type=NodeType.PAPER,
             )
         )
 
         # 添加边
-        paper_node = KGNode(label="Some ISAC Paper", node_type=NodeType.PAPER)
+        paper_node = KGNode(label="Some Agent Paper", node_type=NodeType.PAPER)
         method_node = KGNode(
-            label="Hybrid Beamforming", node_type=NodeType.METHOD
+            label="Plan and Execute", node_type=NodeType.METHOD
         )
 
         store.add_edge(
@@ -237,15 +237,15 @@ class TestKnowledgeGraphStore:
         )
         store.add_edge(
             KGEdge(
-                source_id="concept_ofdm",
-                target_id="concept_mimo",
+                source_id="concept_react",
+                target_id="concept_memgpt",
                 relation_type=RelationType.RELATED_TO,
             )
         )
         store.add_edge(
             KGEdge(
                 source_id=method_node.node_id,
-                target_id="metric_ber",
+                target_id="metric_task_success_rate",
                 relation_type=RelationType.EVALUATED_BY,
             )
         )
@@ -254,41 +254,41 @@ class TestKnowledgeGraphStore:
     def test_add_node(self, store):
         """验证添加节点"""
         node_id = store.add_node(
-            KGNode(label="OFDM", node_type=NodeType.CONCEPT)
+            KGNode(label="ReAct", node_type=NodeType.CONCEPT)
         )
-        assert node_id == "concept_ofdm"
+        assert node_id == "concept_react"
         assert store.node_count == 1
 
     def test_add_duplicate_node_merges(self, store):
         """验证重复节点合并"""
         store.add_node(
             KGNode(
-                label="OFDM",
+                label="ReAct",
                 node_type=NodeType.CONCEPT,
-                properties={"domain": "wireless"},
+                properties={"domain": "agent planning"},
             )
         )
         store.add_node(
             KGNode(
-                label="OFDM",
+                label="ReAct",
                 node_type=NodeType.CONCEPT,
-                properties={"definition": "multi-carrier"},
+                properties={"definition": "reasoning and acting"},
             )
         )
         assert store.node_count == 1  # 应该合并，不是新增
-        node = store.get_node("concept_ofdm")
+        node = store.get_node("concept_react")
         assert node is not None
         assert "domain" in node.properties
         assert "definition" in node.properties
 
     def test_add_edge(self, store):
         """验证添加边"""
-        store.add_node(KGNode(label="OFDM", node_type=NodeType.CONCEPT))
-        store.add_node(KGNode(label="MIMO", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="ReAct", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="MemGPT", node_type=NodeType.CONCEPT))
         edge_id = store.add_edge(
             KGEdge(
-                source_id="concept_ofdm",
-                target_id="concept_mimo",
+                source_id="concept_react",
+                target_id="concept_memgpt",
                 relation_type=RelationType.RELATED_TO,
             )
         )
@@ -297,10 +297,10 @@ class TestKnowledgeGraphStore:
 
     def test_add_edge_missing_node(self, store):
         """验证添加边时源/目标节点不存在的情况"""
-        store.add_node(KGNode(label="OFDM", node_type=NodeType.CONCEPT))
+        store.add_node(KGNode(label="ReAct", node_type=NodeType.CONCEPT))
         edge_id = store.add_edge(
             KGEdge(
-                source_id="concept_ofdm",
+                source_id="concept_react",
                 target_id="concept_nonexistent",
                 relation_type=RelationType.RELATED_TO,
             )
@@ -311,33 +311,33 @@ class TestKnowledgeGraphStore:
     def test_query_by_type(self, populated_store):
         """验证按类型查询"""
         concepts = populated_store.query_by_type(NodeType.CONCEPT)
-        assert len(concepts) == 2  # OFDM + MIMO
+        assert len(concepts) == 2  # ReAct + MemGPT
 
     def test_search_nodes(self, populated_store):
         """验证关键词搜索"""
-        results = populated_store.search_nodes("ofdm")
+        results = populated_store.search_nodes("react")
         assert len(results) >= 1
-        assert any(n.label == "OFDM" for n in results)
+        assert any(n.label == "ReAct" for n in results)
 
     def test_search_nodes_case_insensitive(self, populated_store):
         """验证大小写不敏感搜索"""
-        results1 = populated_store.search_nodes("OFDM")
-        results2 = populated_store.search_nodes("ofdm")
+        results1 = populated_store.search_nodes("ReAct")
+        results2 = populated_store.search_nodes("react")
         assert len(results1) == len(results2)
 
     def test_query_neighbors(self, populated_store):
         """验证邻居查询"""
-        neighbors = populated_store.query_neighbors("concept_ofdm", depth=1)
+        neighbors = populated_store.query_neighbors("concept_react", depth=1)
         assert len(neighbors) >= 1
         labels = [n.label for n, e in neighbors]
-        assert "MIMO" in labels
+        assert "MemGPT" in labels
 
     def test_remove_node(self, populated_store):
         """验证删除节点（含关联边）"""
         initial_edges = populated_store.edge_count
-        removed = populated_store.remove_node("concept_ofdm")
+        removed = populated_store.remove_node("concept_react")
         assert removed is True
-        assert populated_store.get_node("concept_ofdm") is None
+        assert populated_store.get_node("concept_react") is None
         assert populated_store.edge_count < initial_edges
 
     def test_save_and_load(self, populated_store):

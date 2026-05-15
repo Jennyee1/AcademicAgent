@@ -1,0 +1,79 @@
+# AcademicAgent 评测回归门禁阈值
+# ================================
+# gate.py 读取本文件 + run_summary.json + 可选 baseline。
+# 任一指标 FAIL（低于 min）或 run 被标记 contaminated，门禁返回非零退出码。
+#
+# 字段：
+#   min                  : 该指标聚合均值的最低可接受值
+#   regression_tolerance : 相对 baseline 允许的最大回退幅度（绝对值）
+#   warn_only            : true 时只 WARN 不 FAIL（指标尚不稳定/数据量小时用）
+#
+# 阈值偏保守，随数据集成熟逐步收紧。
+
+metrics:
+  # --- 系统可靠性 ---
+  tool_success_rate:
+    min: 0.90
+    regression_tolerance: 0.05
+  completion_rate:
+    min: 0.70
+    regression_tolerance: 0.05
+
+  # --- 检索质量 ---
+  recall_at_5:
+    min: 0.60
+    regression_tolerance: 0.10
+    warn_only: true
+  mrr:
+    min: 0.50
+    regression_tolerance: 0.10
+    warn_only: true
+
+  # --- KG 抽取质量 ---
+  kg_node_f1:
+    min: 0.45
+    regression_tolerance: 0.10
+    warn_only: true
+  kg_edge_f1:
+    min: 0.30
+    regression_tolerance: 0.10
+    warn_only: true
+  schema_validity_rate:
+    min: 0.95
+    regression_tolerance: 0.05
+  extraction_nonempty_rate:
+    min: 0.80
+    regression_tolerance: 0.10
+
+  # --- 盲区检测 ---
+  gap_type_match:
+    min: 0.60
+    regression_tolerance: 0.10
+    warn_only: true
+
+  # --- 代码执行 ---
+  code_success_rate:
+    min: 0.90
+    regression_tolerance: 0.05
+  stdout_assertion_pass:
+    min: 0.80
+    regression_tolerance: 0.10
+
+  # --- 图表分析 ---
+  figure_type_accuracy:
+    min: 0.60
+    regression_tolerance: 0.15
+    warn_only: true
+
+  # --- L2 工作流 ---
+  workflow_completion_rate:
+    min: 0.70
+    regression_tolerance: 0.10
+  tool_sequence_match:
+    min: 0.80
+    regression_tolerance: 0.10
+
+# 性能与成本上限（gate 对 run_summary 的 latency / cost 做检查）
+budget:
+  p90_latency_s: 180.0
+  avg_cost_usd_per_task: 0.05

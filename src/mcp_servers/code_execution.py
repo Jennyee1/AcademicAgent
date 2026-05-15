@@ -17,7 +17,7 @@ ScholarMind - 代码执行 MCP Server
   4. explain_template   — 详细解释模板的功能和参数
 
 技术架构：
-  用户: "帮我用 OFDM 模板跑个仿真"
+  用户: "帮我把这篇 Agent 论文里的评测流程写成可运行的 toy example"
     ↓
   Claude Code → MCP Protocol → 本 Server
     ├── templates.py (代码模板库)
@@ -28,7 +28,7 @@ ScholarMind - 代码执行 MCP Server
 【工程思考】代码执行为什么是重要的 Phase 4？
   Phase 1-3 让 Agent 能"读懂论文"和"规划学习"，
   Phase 4 让 Agent 能"动手实验"——这是从"被动学习"到"主动验证"的跨越。
-  面试亮点：Agent 不只是 chatbot，它能真正帮你跑仿真。
+  面试亮点：Agent 不只是 chatbot，它能真正帮你把论文方法转成可验证的实验。
 """
 
 import logging
@@ -64,8 +64,8 @@ mcp = FastMCP(
     "ScholarMind-CodeExecution",
     instructions=(
         "代码执行与实验复现服务。"
-        "可以安全地运行 Python 仿真代码，提供通信领域预置模板，"
-        "帮助研究生将论文方法快速转化为可运行的实验。"
+        "可以安全地运行 Python 实验代码，提供科研原型与可视化模板，"
+        "帮助研究生将 Agent 论文方法、评测指标和 toy benchmark 快速转化为可运行实验。"
     ),
 )
 
@@ -88,7 +88,7 @@ async def run_code(
     适合使用的场景：
     - 用户说"帮我跑一下这段代码"
     - 用户说"验证一下这个公式的数值结果"
-    - 需要运行仿真代码并获取结果和图表
+    - 需要运行实验代码并获取结果和图表
     - 论文方法的快速原型验证
 
     支持的库：numpy, scipy, matplotlib, math
@@ -117,18 +117,17 @@ async def run_template(
     parameter_overrides: str = "",
 ) -> str:
     """
-    运行预置的通信领域代码模板。
+    运行预置的科研代码模板。
 
     适合使用的场景：
-    - 用户说"用 OFDM 模板跑个仿真"
-    - 用户说"帮我试试 MUSIC 算法"
-    - 需要快速验证通信/信号处理概念
+    - 用户说"把这个 Agent 评测指标写成可运行实验"
+    - 用户说"帮我试试一个 memory retrieval 的 toy example"
+    - 需要快速验证论文中的算法流程、指标计算或 toy benchmark
     - 论文中提到某个方法，想快速看效果
 
     可用模板：
-    - ofdm_basic: OFDM 基础收发机（QPSK + BER 曲线）
-    - mimo_beamforming: MIMO 波束赋形（MRT vs ZF 对比）
-    - aoa_music: MUSIC 算法 AOA 估计
+    - ofdm_basic / mimo_beamforming / aoa_music: 数值仿真示例，可作为科研代码复现参考
+    - 后续可扩展 agent_eval_toy、rag_retrieval_eval 等 Agent 评测模板
 
     Args:
         template_name: 模板名称（如 "ofdm_basic"）
@@ -184,11 +183,11 @@ async def list_code_templates(category: str = "") -> str:
 
     适合使用的场景：
     - 用户说"有什么模板可以用？"
-    - 用户说"通信相关的代码模板有哪些？"
-    - 需要查看可用的仿真代码
+    - 用户说"有哪些可以参考的科研实验代码模板？"
+    - 需要查看可用的实验代码
 
     Args:
-        category: 可选分类过滤（communication / localization / signal_processing）
+        category: 可选分类过滤（如 simulation / evaluation / retrieval）
 
     Returns:
         模板列表
@@ -226,8 +225,8 @@ async def explain_template(template_name: str) -> str:
     详细解释一个代码模板的功能、参数和用法。
 
     适合使用的场景：
-    - 用户说"OFDM 模板是干什么的？"
-    - 用户说"MUSIC 算法模板怎么用？"
+    - 用户说"这个模板适合验证什么论文方法？"
+    - 用户说"这个实验模板怎么改成论文里的设置？"
     - 需要了解模板的参数才能修改
 
     Args:

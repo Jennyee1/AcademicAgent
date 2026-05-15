@@ -10,7 +10,7 @@ ScholarMind Paper Watch — 论文追踪脚本
     python fetch_papers.py
 
     # 手动指定关键词
-    python fetch_papers.py --topics "ISAC,RIS,channel estimation"
+    python fetch_papers.py --topics "LLM Agent,RAG,multi-agent collaboration"
 
     # 指定时间范围
     python fetch_papers.py --days 3

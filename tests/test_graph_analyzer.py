@@ -32,56 +32,56 @@ def _build_sample_graph() -> KnowledgeGraphStore:
     """
     构建一个有代表性的小型知识图谱用于测试
 
-    结构（ISAC 领域）：
-    Paper1 --PROPOSES--> OFDM_Sensing (Method)
-    Paper1 --USES-->     OFDM (Concept, 核心)
-    Paper1 --USES-->     MIMO (Concept, 核心)
-    Paper2 --PROPOSES--> Beam_Tracking (Method)
-    Paper2 --USES-->     MIMO (Concept)
-    Paper2 --USES-->     Beamforming (Concept)
-    OFDM_Sensing --USES--> OFDM (Concept)
-    Beam_Tracking --USES--> Beamforming (Concept)
-    Beam_Tracking --IMPROVES--> OFDM_Sensing (Method)
+    结构（LLM Agent 领域）：
+    Paper1 --PROPOSES--> ReAct (Method)
+    Paper1 --USES-->     Agent Planning (Concept, 核心)
+    Paper1 --USES-->     Tool Use (Concept, 核心)
+    Paper2 --PROPOSES--> Memory Retrieval (Method)
+    Paper2 --USES-->     Tool Use (Concept)
+    Paper2 --USES-->     Long-term Memory (Concept)
+    ReAct --USES--> Agent Planning (Concept)
+    Memory Retrieval --USES--> Long-term Memory (Concept)
+    Memory Retrieval --IMPROVES--> ReAct (Method)
     Isolated_Concept (no edges, 孤立)
     """
     store = KnowledgeGraphStore()
 
     # 论文
-    store.add_node(KGNode(label="ISAC OFDM Sensing Design", node_type=NodeType.PAPER,
-                          properties={"year": "2024", "venue": "IEEE TWC"}))
-    store.add_node(KGNode(label="Beam Tracking for 6G", node_type=NodeType.PAPER,
-                          properties={"year": "2025", "venue": "IEEE JSAC"}))
+    store.add_node(KGNode(label="ReAct: Synergizing Reasoning and Acting", node_type=NodeType.PAPER,
+                          properties={"year": "2023", "venue": "ICLR"}))
+    store.add_node(KGNode(label="MemGPT: Towards LLMs as Operating Systems", node_type=NodeType.PAPER,
+                          properties={"year": "2024", "venue": "arXiv"}))
 
     # 核心概念
-    store.add_node(KGNode(label="OFDM", node_type=NodeType.CONCEPT,
-                          properties={"definition": "Orthogonal Frequency Division Multiplexing"}))
-    store.add_node(KGNode(label="MIMO", node_type=NodeType.CONCEPT,
-                          properties={"definition": "Multiple Input Multiple Output"}))
-    store.add_node(KGNode(label="Beamforming", node_type=NodeType.CONCEPT,
+    store.add_node(KGNode(label="Agent Planning", node_type=NodeType.CONCEPT,
+                          properties={"definition": "Planning actions for an LLM agent"}))
+    store.add_node(KGNode(label="Tool Use", node_type=NodeType.CONCEPT,
+                          properties={"definition": "Calling external tools during reasoning"}))
+    store.add_node(KGNode(label="Long-term Memory", node_type=NodeType.CONCEPT,
                           properties={}))  # 属性稀疏 → 可能触发 foundation_gap
 
     # 方法
-    store.add_node(KGNode(label="OFDM Sensing", node_type=NodeType.METHOD,
-                          properties={"description": "OFDM-based sensing method"}))
-    store.add_node(KGNode(label="Beam Tracking", node_type=NodeType.METHOD,
-                          properties={"description": "Adaptive beam tracking algorithm"},
-                          source_paper="Beam Tracking for 6G"))
+    store.add_node(KGNode(label="ReAct", node_type=NodeType.METHOD,
+                          properties={"description": "Reasoning and acting method"}))
+    store.add_node(KGNode(label="Memory Retrieval", node_type=NodeType.METHOD,
+                          properties={"description": "Retrieve relevant memories for an agent"},
+                          source_paper="MemGPT: Towards LLMs as Operating Systems"))
 
     # 孤立概念（用于测试 isolated_concept 盲区检测）
-    store.add_node(KGNode(label="RIS", node_type=NodeType.CONCEPT,
+    store.add_node(KGNode(label="Agent Benchmark", node_type=NodeType.CONCEPT,
                           properties={}))
 
     # 关系
     edges = [
-        ("ISAC OFDM Sensing Design", "OFDM Sensing", RelationType.PROPOSES),
-        ("ISAC OFDM Sensing Design", "OFDM", RelationType.USES),
-        ("ISAC OFDM Sensing Design", "MIMO", RelationType.USES),
-        ("Beam Tracking for 6G", "Beam Tracking", RelationType.PROPOSES),
-        ("Beam Tracking for 6G", "MIMO", RelationType.USES),
-        ("Beam Tracking for 6G", "Beamforming", RelationType.USES),
-        ("OFDM Sensing", "OFDM", RelationType.USES),
-        ("Beam Tracking", "Beamforming", RelationType.USES),
-        ("Beam Tracking", "OFDM Sensing", RelationType.IMPROVES),
+        ("ReAct: Synergizing Reasoning and Acting", "ReAct", RelationType.PROPOSES),
+        ("ReAct: Synergizing Reasoning and Acting", "Agent Planning", RelationType.USES),
+        ("ReAct: Synergizing Reasoning and Acting", "Tool Use", RelationType.USES),
+        ("MemGPT: Towards LLMs as Operating Systems", "Memory Retrieval", RelationType.PROPOSES),
+        ("MemGPT: Towards LLMs as Operating Systems", "Tool Use", RelationType.USES),
+        ("MemGPT: Towards LLMs as Operating Systems", "Long-term Memory", RelationType.USES),
+        ("ReAct", "Agent Planning", RelationType.USES),
+        ("Memory Retrieval", "Long-term Memory", RelationType.USES),
+        ("Memory Retrieval", "ReAct", RelationType.IMPROVES),
     ]
     for src_label, tgt_label, rel in edges:
         src_node = [n for n in store._nodes.values() if n.label == src_label][0]
@@ -151,12 +151,12 @@ class TestImportance:
         scores = [r.importance_score for r in result]
         assert scores == sorted(scores, reverse=True)
 
-    def test_ofdm_and_mimo_high_importance(self, analyzer):
-        """OFDM 和 MIMO 被最多节点引用，应该排名靠前"""
+    def test_agent_core_concepts_high_importance(self, analyzer):
+        """Agent Planning 和 Tool Use 被最多节点引用，应该排名靠前"""
         result = analyzer.compute_importance()
         top_labels = [r.label for r in result[:4]]
-        # OFDM 和 MIMO 至少应该在前 4 名（它们入度最高）
-        assert "OFDM" in top_labels or "MIMO" in top_labels
+        # Agent Planning 和 Tool Use 至少应该在前 4 名（它们入度最高）
+        assert "Agent Planning" in top_labels or "Tool Use" in top_labels
 
     def test_importance_has_pagerank(self, analyzer):
         result = analyzer.compute_importance()
@@ -198,11 +198,11 @@ class TestGraphHealth:
 class TestKnowledgeGaps:
 
     def test_detects_isolated_concept(self, analyzer):
-        """RIS 是孤立节点，应该被检测为盲区"""
+        """Agent Benchmark 是孤立节点，应该被检测为盲区"""
         gaps = analyzer.detect_knowledge_gaps()
         isolated = [g for g in gaps if g.gap_type == "isolated_concept"]
         isolated_labels = [g.label for g in isolated]
-        assert "RIS" in isolated_labels
+        assert "Agent Benchmark" in isolated_labels
 
     def test_gap_has_severity(self, analyzer):
         gaps = analyzer.detect_knowledge_gaps()
@@ -254,12 +254,12 @@ class TestLearningPath:
         assert len(result.path) <= 3
 
     def test_path_with_focus_area(self, analyzer):
-        """聚焦 beamforming 应该过滤出相关概念"""
-        result = analyzer.generate_learning_path(focus_area="beam")
+        """聚焦 memory 应该过滤出相关概念"""
+        result = analyzer.generate_learning_path(focus_area="memory")
         if result.path:
             labels = [item.label.lower() for item in result.path]
-            # 至少一个条目应该跟 beam 相关
-            assert any("beam" in label for label in labels)
+            # 至少一个条目应该跟 memory 相关
+            assert any("memory" in label for label in labels)
 
     def test_result_includes_health(self, analyzer):
         result = analyzer.generate_learning_path()

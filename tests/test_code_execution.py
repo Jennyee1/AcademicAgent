@@ -160,16 +160,16 @@ class TestTemplates:
     def test_templates_registered(self):
         assert len(TEMPLATES) >= 3
 
-    def test_ofdm_template_exists(self):
-        t = get_template("ofdm_basic")
+    def test_agent_eval_template_exists(self):
+        t = get_template("agent_eval_toy")
         assert t is not None
-        assert t.category == "communication"
+        assert t.category == "evaluation"
 
-    def test_mimo_template_exists(self):
-        t = get_template("mimo_beamforming")
+    def test_rag_retrieval_template_exists(self):
+        t = get_template("rag_retrieval_eval")
         assert t is not None
 
-    def test_music_template_exists(self):
+    def test_numeric_simulation_template_still_available(self):
         t = get_template("aoa_music")
         assert t is not None
 
@@ -178,17 +178,17 @@ class TestTemplates:
         assert len(templates) >= 3
 
     def test_list_by_category(self):
-        comm = list_templates("communication")
-        assert all(t.category == "communication" for t in comm)
-        assert len(comm) >= 2
+        evaluation = list_templates("evaluation")
+        assert all(t.category == "evaluation" for t in evaluation)
+        assert len(evaluation) >= 1
 
     def test_get_nonexistent_template(self):
         assert get_template("nonexistent") is None
 
     def test_get_template_code(self):
-        code = get_template_code("ofdm_basic")
+        code = get_template_code("agent_eval_toy")
         assert code is not None
-        assert "OFDM" in code
+        assert "Agent Evaluation" in code
         assert "import numpy" in code
 
     def test_template_has_all_fields(self):
@@ -209,16 +209,16 @@ class TestTemplates:
 
 class TestTemplateExecution:
 
-    def test_ofdm_runs(self, sandbox):
-        """OFDM 模板应该能完整执行"""
-        code = get_template_code("ofdm_basic")
+    def test_agent_eval_runs(self, sandbox):
+        """Agent 评测模板应该能完整执行"""
+        code = get_template_code("agent_eval_toy")
         result = sandbox.execute(code, timeout=30)
         assert result.success is True
-        assert "BER" in result.stdout
+        assert "Agent Evaluation Summary" in result.stdout
 
-    def test_music_runs(self, sandbox):
-        """MUSIC 模板应该能完整执行"""
-        code = get_template_code("aoa_music")
+    def test_rag_retrieval_runs(self, sandbox):
+        """RAG 检索评测模板应该能完整执行"""
+        code = get_template_code("rag_retrieval_eval")
         result = sandbox.execute(code, timeout=30)
         assert result.success is True
-        assert "MUSIC" in result.stdout
+        assert "Retrieval Evaluation" in result.stdout

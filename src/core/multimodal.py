@@ -22,7 +22,7 @@ ScholarMind - 多模态图表分析模块
   - 学术图表种类多样（框图、流程图、信号流图、曲线对比…），
     单一 CV 模型覆盖不了
   - Vision LLM 可以同时理解"图"和"上下文文字"
-  - 对于通信感知领域，LLM 能理解 OFDM 框图/BER 曲线的含义，
+  - 对于大模型 Agent 论文，LLM 能理解架构图、流程图、消融表和 benchmark 曲线，
     而通用 OCR 只能提取文字
 """
 
@@ -99,7 +99,7 @@ PROMPTS_DIR = Path(__file__).parent.parent.parent / "prompts" / "domain_prompts"
 # 内联 fallback（当 prompt 文件不存在时使用）
 _FALLBACK_PROMPTS = {
     "figure_type_detection": (
-        'You are analyzing a figure from an academic paper in communications/sensing.\n'
+        'You are analyzing a figure from an academic paper in the large language model Agent domain.\n'
         'Identify the type: block_diagram, signal_flow, performance_curve, table, equation, photo, or other.\n'
         'Respond in JSON: {"figure_type": "<type>", "description": "<one-sentence>"}'
     ),
